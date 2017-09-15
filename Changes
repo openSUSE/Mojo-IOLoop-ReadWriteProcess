@@ -2,5 +2,7 @@ Revision history for Perl extension Mojo-IOLoop-ReadWriteProcess
 
 {{$NEXT}}
 
+0.01 2017-09-15T15:06:17Z
+
     - original version
 
