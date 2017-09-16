@@ -139,7 +139,7 @@ subtest 'process execute()' => sub {
   $p->write("FOOBAR");
   is $p->getline, "you entered FOOBAR\n",
     'process received input and printed it back';
-  $p->stop();
+  $p->wait_stop();
   is $p->is_running,  0,           'process is not running anymore';
   is $p->getline,     "FOO BAZ\n", 'process received extra arguments';
   is $p->exit_status, 100,         'able to retrieve function return';
@@ -154,7 +154,7 @@ subtest 'process execute()' => sub {
   $p->write("FOOBAR");
   is $p->getline, "you entered FOOBAR\n",
     'process received input and printed it back';
-  $p->stop();
+  $p->wait_stop();
   is $p->is_running,  0,           'process is not running anymore';
   is $p->getline,     "FOO BAZ\n", 'process received extra arguments';
   is $p->exit_status, 100,         'able to retrieve function return';

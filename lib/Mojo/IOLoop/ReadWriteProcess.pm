@@ -13,7 +13,7 @@
 
 package Mojo::IOLoop::ReadWriteProcess;
 
-our $VERSION = "0.01";
+our $VERSION = "0.02";
 
 use Mojo::Base 'Mojo::EventEmitter';
 use Mojo::File 'path';
@@ -99,12 +99,6 @@ sub _open {
 sub _fork {
   my ($self, $code, @args) = @_;
   die "Can't spawn child without code" unless ref($code) eq "CODE";
-  $SIG{CHLD} = sub {
-    local ($!, $?);
-
-    # get the results
-    $self->emit('collect_status') while ((my $pid = waitpid(-1, WNOHANG)) > 0);
-  };
 
   # STDIN/STDOUT/STDERR redirect.
   my ($input_pipe, $output_pipe, $output_err_pipe);
@@ -124,6 +118,49 @@ sub _fork {
     $channel_out     = IO::Pipe->new();
   }
 
+  # Defered collect of return status
+  $self->once(
+    collect_status => sub {
+      my $self = shift;
+      my $return_reader
+        = $self->_internal_return->isa("IO::Pipe::End")
+        ?
+        $self->_internal_return
+        : $self->_internal_return->reader();
+      my $internal_err_reader
+        = $self->_internal_err->isa("IO::Pipe::End") ?
+        $self->_internal_err
+        : $self->_internal_err->reader();
+      $self->_new_err('Cannot read from return code pipe') && return
+        unless IO::Select->new($return_reader)->can_read(10);
+      $self->_new_err('Cannot read from errors code pipe') && return
+        unless IO::Select->new($internal_err_reader)->can_read(10);
+
+      my @result_return = $return_reader->getlines();
+      my @result_error  = $internal_err_reader->getlines();
+      $self->_diag("Forked code Process Errors: " . join("\n", @result_error))
+        if DEBUG;
+      $self->_diag("Forked code Process Returns: " . join("\n", @result_return))
+        if DEBUG;
+
+      $self->_status(@result_return) if @result_return;
+      push(
+        @{$self->error},
+        map { Mojo::IOLoop::ReadWriteProcess::Exception->new($_) }
+          @result_error
+      ) if @result_error;
+
+      #$self->emit('error', $self->error) if $self->error->size > 0;
+      unlink($self->pidfile) if $self->pidfile;
+    });
+
+  $SIG{CHLD} = sub {
+    local ($!, $?);
+
+    # get the results
+    $self->_shutdown while ((my $pid = waitpid(-1, WNOHANG)) > 0);
+  };
+
   if (DEBUG) {
     my $code_str = $self->_deparse->coderef2text($code);
     warn "Fork: $code_str\n";
@@ -136,8 +173,14 @@ sub _fork {
     local $SIG{CHLD};
     local $SIG{TERM} = sub { exit 1 };
 
-    my $return       = $self->_internal_return->writer();
-    my $internal_err = $self->_internal_err->writer();
+    my $return
+      = $self->_internal_return->isa("IO::Pipe::End") ?
+      $self->_internal_return
+      : $self->_internal_return->writer();
+    my $internal_err
+      = $self->_internal_err->isa("IO::Pipe::End") ?
+      $self->_internal_err
+      : $self->_internal_err->writer();
     $return->autoflush(1);
     $internal_err->autoflush(1);
 
@@ -167,50 +210,6 @@ sub _fork {
   }
   $self->process_id($pid);
 
-  # Defered collect of return status
-  $self->once(
-    collect_status => sub {
-      my $self = shift;
-      my $return_reader
-        = $self->_internal_return->isa("IO::Pipe::End")
-        ?
-        $self->_internal_return
-        : $self->_internal_return->reader();
-      my $internal_err_reader
-        = $self->_internal_err->isa("IO::Pipe::End") ?
-        $self->_internal_err
-        : $self->_internal_err->reader();
-      push(
-        @{$self->error},
-        Mojo::IOLoop::ReadWriteProcess::Exception->new(
-          'Cannot read from return code pipe'))
-        && return
-        unless IO::Select->new($return_reader)->can_read(10);
-      push(
-        @{$self->error},
-        Mojo::IOLoop::ReadWriteProcess::Exception->new(
-          'Cannot read from errors pipe'))
-        && return
-        unless IO::Select->new($internal_err_reader)->can_read(10);
-
-      my @result_return = $return_reader->getlines();
-      my @result_error  = $internal_err_reader->getlines();
-      $self->_diag("Forked code Process Errors: " . join("\n", @result_error))
-        if DEBUG;
-      $self->_diag("Forked code Process Returns: " . join("\n", @result_return))
-        if DEBUG;
-
-      $self->_status(@result_return) if @result_return;
-      push(
-        @{$self->error},
-        map { Mojo::IOLoop::ReadWriteProcess::Exception->new($_) }
-          @result_error
-      ) if @result_error;
-
-      $self->emit('error', $self->error) if $self->error->size > 0;
-      unlink($self->pidfile) if $self->pidfile;
-    });
-
   return $self unless $self->set_pipes();
 
   $self->read_stream($output_pipe->reader);
@@ -225,8 +224,18 @@ sub _fork {
   return $self;
 }
 
+sub _new_err {
+  my $self = shift;
+  my $err  = Mojo::IOLoop::ReadWriteProcess::Exception->new(@_);
+  push(@{$self->error}, $err);
+
+  #$self->emit(error => $self->error);
+  return $self;
+}
+
 sub wait {
   my $self = shift;
+  sleep $self->sleeptime_during_kill;
   do {
     sleep $self->sleeptime_during_kill;
   } while ($self->is_running);
@@ -245,6 +254,7 @@ sub write_pidfile {
   my ($self, $pidfile) = @_;
   $self->pidfile($pidfile) if $pidfile;
   return unless $self->pidfile;
+  return unless $self->pid;
   path($self->pidfile)->spurt($self->pid);
   return $self;
 }
@@ -310,13 +320,19 @@ sub start {
   return $self if $self->is_running;
   die "Nothing to do" unless !!$self->execute || !!$self->code;
 
-  $self->_fork($self->code,
-    (@{$self->args}) x !!($self->args && ref($self->args) eq "ARRAY"))
-    if !!$self->code;
+  my @args
+    = $self->args ?
+    ref($self->args) eq "ARRAY"
+      ? @{$self->args}
+      : $self->args
+    : ();
 
-  $self->_open($self->execute,
-    (@{$self->args}) x !!($self->args && ref($self->args) eq "ARRAY"))
-    if !!$self->execute;
+  if ($self->code) {
+    $self->_fork($self->code, @args);
+  }
+  elsif ($self->execute) {
+    $self->_open($self->execute, @args);
+  }
 
   $self->write_pidfile;
   $self->emit('start');
@@ -359,9 +375,7 @@ sub stop {
   }
   elsif ($not_dead) {
     $self->_diag("Could not kill process id: " . $self->process_id) if DEBUG;
-    push(
-      @{$self->error},
-      Mojo::IOLoop::ReadWriteProcess::Exception->new("Could not kill process"));
+    $self->_new_err('Could not kill process');
   }
   else {
     delete $self->{process_id};
@@ -373,6 +387,7 @@ sub stop {
 sub _shutdown {
   my $self = shift;
   $self->emit('collect_status');
+  $self->emit('process_error', $self->error) if $self->error->size > 0;
   $self->emit('stop');
   return $self;
 }
@@ -417,21 +432,22 @@ package Mojo::IOLoop::ReadWriteProcess::Pool;
 use Mojo::Base 'Mojo::Collection';
 
 sub _cmd {
-  my $c = shift;
-  my $f = pop;
+  my $c    = shift;
+  my $f    = pop;
+  my @args = @_;
   my @r;
-  $c->each(sub { push(@r, shift->$f(@_)) });
+  $c->each(sub { push(@r, +shift()->$f(@args)) });
   wantarray ? @r : $c;
 }
-sub start     { shift->_cmd('start') }
-sub stop      { shift->_cmd('stop') }
-sub wait_stop { shift->_cmd('wait_stop') }
-
-sub restart { shift->_cmd('restart') }
-sub on      { shift->_cmd(@_, 'on') }
-sub emit    { shift->_cmd(@_, 'emit') }
 
 sub add { push @{+shift()}, @_ }
+
+sub AUTOLOAD {
+  our $AUTOLOAD;
+  my $fn = $AUTOLOAD;
+  $fn =~ s/.*:://;
+  +shift()->_cmd(@_, $fn);
+}
 
 package Mojo::IOLoop::ReadWriteProcess::Exception;
 use Mojo::Base -base;
