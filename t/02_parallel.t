@@ -10,7 +10,7 @@ use lib ("$FindBin::Bin/lib", "../lib", "lib");
 
 subtest parallel => sub {
   use Mojo::IOLoop::ReadWriteProcess;
-  my $n_proc = 15;
+  my $n_proc = 4;
   my $fired;
 
   my $c = Mojo::IOLoop::ReadWriteProcess->new->parallel(
@@ -54,7 +54,7 @@ subtest parallel => sub {
 subtest batch => sub {
   use Mojo::IOLoop::ReadWriteProcess;
   my @stack;
-  my $n_proc = 5;
+  my $n_proc = 4;
   my $fired;
 
   push(@stack,
@@ -92,7 +92,7 @@ subtest batch => sub {
 
 subtest "Working with pools" => sub {
 
-  my $n_proc = 6;
+  my $n_proc = 4;
   my $number = 1;
   my @stack;
   for (1 .. $n_proc) {
