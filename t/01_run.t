@@ -6,7 +6,7 @@ use Test::More;
 use POSIX;
 use FindBin;
 use Mojo::File qw(tempfile path);
-use lib ("$FindBin::Bin/lib", "..");
+use lib ("$FindBin::Bin/lib", "../lib", "lib");
 
 subtest process => sub {
   use Mojo::IOLoop::ReadWriteProcess;
@@ -344,7 +344,7 @@ subtest 'process code()' => sub {
   $p = Mojo::IOLoop::ReadWriteProcess->new(sub { die "Fatal error"; });
   my $event_fired = 0;
   $p->on(
-    error => sub {
+    process_error => sub {
       $event_fired = 1;
       like(pop->first->to_string, qr/Fatal error/, 'right error from event');
     });

@@ -6,7 +6,7 @@ use Test::More;
 use POSIX;
 use FindBin;
 use Mojo::File qw(tempfile path);
-use lib ("$FindBin::Bin/lib", "..");
+use lib ("$FindBin::Bin/lib", "../lib", "lib");
 
 subtest parallel => sub {
   use Mojo::IOLoop::ReadWriteProcess;
@@ -69,7 +69,8 @@ subtest batch => sub {
   $c->each(sub { shift->start(); });
 
 
-  $c->each(sub { $fired++; $_[0]->wait_stop(); is shift->getline(), "Hello world\n" });
+  $c->each(
+    sub { $fired++; $_[0]->wait_stop(); is shift->getline(), "Hello world\n" });
   is $fired, $n_proc;
   $c->stop();
 
@@ -91,7 +92,7 @@ subtest batch => sub {
 
 subtest "Working with pools" => sub {
 
-  my $n_proc = 20;
+  my $n_proc = 6;
   my $number = 1;
   my @stack;
   for (1 .. $n_proc) {
@@ -99,26 +100,20 @@ subtest "Working with pools" => sub {
       @stack,
       Mojo::IOLoop::ReadWriteProcess->new(
         sub { my $self = shift; my $number = shift; return 40 + $number }
-      )->args([$number]));
+      )->args($number));
     $number++;
   }
   my $pool = Mojo::IOLoop::ReadWriteProcess->batch(@stack);
   my $results;
-  my $results2;
-  # $pool->each(
-  #   sub {
-  #     shift->on(stop => sub { $results->{+shift->return_status}++ });
-  #   });
 
-  $pool->on(stop => sub {$results2->{+shift->return_status}++ });
+  $pool->once(stop => sub { $results->{+shift()->return_status}++; });
 
-  $pool->start->wait_stop;
+  $pool->start;
+  $pool->wait_stop;
 
   my $i = 1;
   for (1 .. $n_proc) {
-  #  is $results->{40 + $i}, 1;
-
-    #is $results2->{40+$i}, 1;
+    is $results->{40 + $i}, 1;
     $i++;
   }
 };
