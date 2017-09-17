@@ -116,6 +116,10 @@ subtest "Working with pools" => sub {
     is $results->{40 + $i}, 1;
     $i++;
   }
+
+  ok $pool->get(0) != $pool->get(1);
+  $pool->remove(3);
+  is $pool->get(3), undef;
 };
 
 done_testing;

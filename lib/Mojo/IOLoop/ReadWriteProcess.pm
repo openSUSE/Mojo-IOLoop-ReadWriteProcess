@@ -440,7 +440,9 @@ sub _cmd {
   wantarray ? @r : $c;
 }
 
+sub get { my $s = shift; @{$s}[+shift()] }
 sub add { push @{+shift()}, @_ }
+sub remove { my $s = shift; delete @{$s}[+shift()] }
 
 sub AUTOLOAD {
   our $AUTOLOAD;
