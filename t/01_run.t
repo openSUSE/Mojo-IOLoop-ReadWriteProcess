@@ -182,36 +182,31 @@ subtest 'process execute()' => sub {
   $p2->stop();
   is $p2->_status, -1,
     'take exit status even with set_pipes = 0 (we killed it)';
-#
-#   my $buffer;
-#   {
-#     open my $handle, '>', \$buffer;
-#     local *STDERR = $handle;
-#     $p = Mojo::IOLoop::ReadWriteProcess->new(
-#       verbose           => 1,
-#       separate_err      => 0,
-#       execute           => "$FindBin::Bin/data/term_trap.sh",
-#       max_kill_attempts => 1
-#     );    # ;)
-#     $p->start();
-#     $p->stop();
-#     $p->pid($pid);
-#     is $p->is_running, 1, 'process is still running';
-#     $p->max_kill_attempts(50);
-#     $p->blocking_stop(1);
-#     $p->stop();
-#     is $p->is_running, 0, 'process is shutten down';
-#     like $buffer,
-# qr/Mojo::IOLoop::ReadWriteProcess::stop\(\): Could not kill process id: $pid/,
-#       'Process could not be
-# killed';
-#     like(
-#       ${(@{$p->error})[0]}, qr/Could not kill process/,
-#       'Error is not empty if process could not be
-# killed'
-#     );
-#     is $p->died, 1, 'Process died';
-#   }
+
+  my $buffer;
+  {
+    open my $handle, '>', \$buffer;
+    local *STDERR = $handle;
+    $p = Mojo::IOLoop::ReadWriteProcess->new(
+      verbose           => 1,
+      separate_err      => 0,
+      execute           => "$FindBin::Bin/data/term_trap.sh",
+      max_kill_attempts => -2
+    );    # ;)
+    $p->start();
+    $p->stop();
+    is $p->is_running, 1, 'process is still running';
+    $p->max_kill_attempts(50);
+    $p->blocking_stop(1);
+    $p->stop();
+    is $p->is_running, 0, 'process is shutten down';
+    like(
+      ${(@{$p->error})[0]}, qr/Could not kill process/,
+      'Error is not empty if process could not be
+killed'
+    );
+    is $p->died, 1, 'Process died';
+  }
 
   $p = Mojo::IOLoop::ReadWriteProcess->new(
     verbose           => 1,

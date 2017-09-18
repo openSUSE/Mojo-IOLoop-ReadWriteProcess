@@ -92,7 +92,7 @@ subtest batch => sub {
 
 subtest "Working with pools" => sub {
 
-  my $n_proc = 4;
+  my $n_proc = 2;
   my $number = 1;
   my @stack;
   for (1 .. $n_proc) {
@@ -105,12 +105,9 @@ subtest "Working with pools" => sub {
   }
   my $pool = Mojo::IOLoop::ReadWriteProcess->batch(@stack);
   my $results;
-
-  $pool->once(stop => sub { $results->{+shift()->return_status}++; });
-
   $pool->start;
+  $pool->once(stop => sub { my $p = shift; $results->{$p->return_status}++; });
   $pool->wait_stop;
-
   my $i = 1;
   for (1 .. $n_proc) {
     is $results->{40 + $i}, 1;
