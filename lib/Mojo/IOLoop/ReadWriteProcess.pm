@@ -30,7 +30,8 @@ use Symbol 'gensym';
 use constant DEBUG => $ENV{MOJO_PROCESS_DEBUG};
 
 has [
-  qw(execute code write_stream process_id read_stream error_stream channel_in channel_out pidfile _internal_err _internal_return _status)
+  qw(execute code write_stream process_id read_stream error_stream channel_in channel_out pidfile),
+  qw(_internal_err _internal_return _status)
 ];
 has blocking_stop         => 0;
 has max_kill_attempts     => 5;
@@ -233,20 +234,14 @@ sub _new_err {
   return $self;
 }
 
+
 sub wait {
   my $self = shift;
-  sleep $self->sleeptime_during_kill;
-  do {
-    sleep $self->sleeptime_during_kill;
-  } while ($self->is_running);
+  sleep $self->sleeptime_during_kill while ($self->is_running);
   return $self;
 }
 
-sub wait_stop {
-  my $self = shift;
-  $self->wait->stop;
-  return $self;
-}
+sub wait_stop { shift->wait->stop }
 
 sub died { !!@{shift->error} ? 1 : 0 }
 
@@ -368,12 +363,12 @@ sub stop {
 
   my $not_dead = $attempt > $self->max_kill_attempts + 1;
 
-  if ($not_dead && $self->blocking_stop) {
+  if ($not_dead && $self->blocking_stop && $self->is_running) {
     kill POSIX::SIGKILL => $self->process_id;
     waitpid($self->process_id, 0);
     $self->_status($?);
   }
-  elsif ($not_dead) {
+  elsif ($not_dead && $self->is_running) {
     $self->_diag("Could not kill process id: " . $self->process_id) if DEBUG;
     $self->_new_err('Could not kill process');
   }
