@@ -2,6 +2,10 @@ Revision history for Perl extension Mojo-IOLoop-ReadWriteProcess
 
 {{$NEXT}}
 
+0.03 2017-09-18T09:47:28Z
+    - add more pool functions
+    - make wait() wait just the necessary time
+    - Minor fixes
 0.02 2017-09-16T14:54:07Z
 
     - Add support for pools and different perl versions

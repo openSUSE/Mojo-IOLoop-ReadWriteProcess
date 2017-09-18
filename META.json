@@ -65,7 +65,7 @@
          "web" : "https://github.com/mudler/Mojo-IOLoop-ReadWriteProcess"
       }
    },
-   "version" : "0.02",
+   "version" : "0.03",
    "x_contributors" : [
       "Ettore Di Giacinto <mudler@gentoo.org>"
    ],
