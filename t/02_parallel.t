@@ -14,10 +14,11 @@ subtest parallel => sub {
   my $fired;
 
   my $c = parallel(
-    code                  => sub { print "Hello world\n"; },
+    code => sub { sleep 2; print "Hello world\n"; },
     kill_sleeptime        => 1,
     sleeptime_during_kill => 1,
-    $n_proc
+    separate_err          => 0,
+    set_pipes             => 0 $n_proc
   );
 
   isa_ok($c, "Mojo::IOLoop::ReadWriteProcess::Pool");
@@ -25,7 +26,7 @@ subtest parallel => sub {
 
   $c->once(stop => sub { $fired++; });
   $c->start();
-  $c->each(sub { is shift->getline(), "Hello world\n"; });
+  $c->each(sub { my $p = shift; $p->wait; is $p->getline(), "Hello world\n"; });
   $c->wait_stop;
   is $fired, $n_proc;
 
@@ -40,15 +41,15 @@ subtest parallel => sub {
 subtest batch => sub {
   use Mojo::IOLoop::ReadWriteProcess qw(batch);
   my @stack;
-  my $n_proc = 4;
+  my $n_proc = 2;
   my $fired;
 
   push(
     @stack,
     Mojo::IOLoop::ReadWriteProcess->new(
-      code                  => sub { print "Hello world\n" },
-      kill_sleeptime        => 1,
-      sleeptime_during_kill => 1
+      code => sub { sleep 2; print "Hello world\n" },
+      separate_err => 0,
+      set_pipes    => 0
     )) for (1 .. $n_proc);
 
   my $c = batch @stack;
@@ -58,18 +59,22 @@ subtest batch => sub {
 
   $c->once(stop => sub { $fired++; });
   $c->start();
-  $c->each(sub { is shift->getline(), "Hello world\n"; });
+  $c->each(sub { my $p = shift; $p->wait; is $p->getline(), "Hello world\n"; });
   $c->wait_stop;
 
   is $fired, $n_proc;
 
-  $c->add(sub { print "Hello world 3\n" });
+  $c->add(
+    code         => sub { print "Hello world 3\n" },
+    separate_err => 0,
+    set_pipes    => 0
+  );
   $c->start();
   is $c->last->getline, "Hello world 3\n";
   $c->wait_stop();
 
   my $result;
-  $c->add(sub { return 40 + 2 });
+  $c->add(code => sub { return 40 + 2 }, separate_err => 0, set_pipes => 0);
   $c->last->on(
     stop => sub {
       $result = shift->return_status;
@@ -79,12 +84,17 @@ subtest batch => sub {
 };
 
 subtest "Working with pools" => sub {
-  my $n_proc = 4;
+  my $n_proc = 2;
   my $number = 1;
   my $pool   = batch;
   for (1 .. $n_proc) {
     $pool->add(
-      code => sub { my $self = shift; my $number = shift; return 40 + $number },
+      code => sub {
+        my $self   = shift;
+        my $number = shift;
+        sleep 2;
+        return 40 + $number;
+      },
       args                  => $number,
       set_pipes             => 0,
       separate_err          => 0,
