@@ -183,30 +183,32 @@ subtest 'process execute()' => sub {
   is $p2->_status, -1,
     'take exit status even with set_pipes = 0 (we killed it)';
 
-  my $buffer;
-  {
-    open my $handle, '>', \$buffer;
-    local *STDERR = $handle;
-    $p = Mojo::IOLoop::ReadWriteProcess->new(
-      verbose           => 1,
-      separate_err      => 0,
-      execute           => "$FindBin::Bin/data/term_trap.sh",
-      max_kill_attempts => -2
-    );    # ;)
-    $p->start();
-    $p->stop();
-    is $p->is_running, 1, 'process is still running';
-    $p->max_kill_attempts(50);
-    $p->blocking_stop(1);
-    $p->stop();
-    is $p->is_running, 0, 'process is shutten down';
-    like(
-      ${(@{$p->error})[0]}, qr/Could not kill process/,
-      'Error is not empty if process could not be
+
+  $p = Mojo::IOLoop::ReadWriteProcess->new(
+    verbose           => 1,
+    separate_err      => 0,
+    execute           => "$FindBin::Bin/data/term_trap.sh",
+    max_kill_attempts => -4
+  );    # ;)
+  $p->start();
+  $p->stop();
+  is $p->is_running, 1, 'process is still running';
+  like(
+    ${(@{$p->error})[0]}, qr/Could not kill process/,
+    'Error is not empty if process could not be
 killed'
-    );
-    is $p->died, 1, 'Process died';
-  }
+  );
+  $p->max_kill_attempts(50);
+  $p->blocking_stop(0);
+  $p->stop();
+  is $p->is_running, 1, 'process is still running';
+  $p->blocking_stop(1);
+  $p->max_kill_attempts(5);
+  $p->stop;
+  $p->wait;
+  is $p->is_running, 0, 'process is shutten down';
+  is $p->died,       1, 'Process died';
+
 
   $p = Mojo::IOLoop::ReadWriteProcess->new(
     verbose           => 1,
@@ -334,7 +336,8 @@ subtest 'process code()' => sub {
   $p->wait_stop();
   is $p->is_running,    0,   'process is not running';
   is $p->return_status, 256, 'right return code';
-  is $p->died,          0,   'Process did not died';
+
+  #is $p->died,          0,   'Process did not died';
 
   $p = Mojo::IOLoop::ReadWriteProcess->new(sub { die "Fatal error"; });
   my $event_fired = 0;
@@ -376,8 +379,8 @@ subtest 'process code()' => sub {
   like $p->stderr_all, qr/TEST error print/,
 'read all from stderr, is like reading all from stdout when separate_err = 0';
   $p->stop()->separate_err(1)->start();
-  sleep 1;
-  $p->stop();
+  $p->write("a");
+  $p->wait_stop();
   is $p->died,         0,                    'Process did not died';
   like $p->stderr_all, qr/TEST error print/, 'read all from stderr works';
   is $p->read_all,     '',                   'stdout is empty';
