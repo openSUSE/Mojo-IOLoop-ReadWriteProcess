@@ -283,15 +283,22 @@ sub _fork {
   my ($channel_in, $channel_out);
 
   if ($self->set_pipes) {
-    $input_pipe      = IO::Pipe->new();
-    $output_pipe     = IO::Pipe->new();
-    $output_err_pipe = IO::Pipe->new();
-    $channel_in      = IO::Pipe->new();
-    $channel_out     = IO::Pipe->new();
+    $input_pipe = IO::Pipe->new()
+      or $self->_new_err('Failed creating input pipe');
+    $output_pipe = IO::Pipe->new()
+      or $self->_new_err('Failed creating output pipe');
+    $output_err_pipe = IO::Pipe->new()
+      or $self->_new_err('Failed creating output error pipe');
+    $channel_in = IO::Pipe->new()
+      or $self->_new_err('Failed creating Channel input pipe');
+    $channel_out = IO::Pipe->new()
+      or $self->_new_err('Failed creating Channel output pipe');
   }
 
-  my $internal_err    = IO::Pipe->new();
-  my $internal_return = IO::Pipe->new();
+  my $internal_err = IO::Pipe->new()
+    or $self->_new_err('Failed creating internal error pipe');
+  my $internal_return = IO::Pipe->new()
+    or $self->_new_err('Failed creating internal return pipe');
 
   # Internal pipes to retrieve error/return
   $self->_internal_err($internal_err);
@@ -302,43 +309,50 @@ sub _fork {
     collect_status => sub {
       my $self = shift;
       $self or return;
-      my $return_reader
-        = $self->_internal_return->isa("IO::Pipe::End")
-        ?
-        $self->_internal_return
-        : $self->_internal_return->reader();
-      my $internal_err_reader
-        = $self->_internal_err->isa("IO::Pipe::End") ?
-        $self->_internal_err
-        : $self->_internal_err->reader();
-      $self->_new_err('Cannot read from return code pipe') && return
-        unless IO::Select->new($return_reader)->can_read(10);
-      $self->_new_err('Cannot read from errors code pipe') && return
-        unless IO::Select->new($internal_err_reader)->can_read(10);
+      my $return_reader;
+      my $internal_err_reader;
+      my @result_return;
+      my @result_error;
 
-      my @result_return = $return_reader->getlines();
-      my @result_error  = $internal_err_reader->getlines();
+      if ($self->_internal_return) {
+        $return_reader
+          = $self->_internal_return->isa("IO::Pipe::End")
+          ?
+          $self->_internal_return
+          : $self->_internal_return->reader();
+        $self->_new_err('Cannot read from return code pipe') && return
+          unless IO::Select->new($return_reader)->can_read(10);
+        @result_return = $return_reader->getlines();
+        $self->_status(@result_return) if @result_return;
 
-      $self->_diag("Forked code Process Errors: " . join("\n", @result_error))
-        if DEBUG;
-      $self->_diag("Forked code Process Returns: " . join("\n", @result_return))
-        if DEBUG;
+        $self->_diag(
+          "Forked code Process Returns: " . join("\n", @result_return))
+          if DEBUG;
+      }
+      if ($self->_internal_err) {
+        $internal_err_reader
+          = $self->_internal_err->isa("IO::Pipe::End") ?
+          $self->_internal_err
+          : $self->_internal_err->reader();
+        $self->_new_err('Cannot read from errors code pipe') && return
+          unless IO::Select->new($internal_err_reader)->can_read(10);
+        @result_error = $internal_err_reader->getlines();
+        push(
+          @{$self->error},
+          map { Mojo::IOLoop::ReadWriteProcess::Exception->new($_) }
+            @result_error
+        ) if @result_error;
+        $self->_diag("Forked code Process Errors: " . join("\n", @result_error))
+          if DEBUG;
+      }
 
-      $self->_status(@result_return) if @result_return;
-      push(
-        @{$self->error},
-        map { Mojo::IOLoop::ReadWriteProcess::Exception->new($_) }
-          @result_error
-      ) if @result_error;
       unlink($self->pidfile) if $self->pidfile;
     });
-
 
   if (DEBUG) {
     my $code_str = $self->_deparse->coderef2text($code);
     $self->_diag("Fork: $code_str");
   }
-
 
   my $pid = fork;
   die "Cannot fork: $!" unless defined $pid;
@@ -347,22 +361,43 @@ sub _fork {
     local $SIG{CHLD};
     local $SIG{TERM} = sub { $self->_exit(1) };
 
-    my $return
-      = $self->_internal_return->isa("IO::Pipe::End") ?
-      $self->_internal_return
-      : $self->_internal_return->writer();
-    my $internal_err
-      = $self->_internal_err->isa("IO::Pipe::End") ?
-      $self->_internal_err
-      : $self->_internal_err->writer();
-    $return->autoflush(1);
-    $internal_err->autoflush(1);
+    my $return;
+    my $internal_err;
+    if ($self->_internal_return) {
+      $return
+        = $self->_internal_return->isa("IO::Pipe::End")
+        ?
+        $self->_internal_return
+        : $self->_internal_return->writer();
+      $return->autoflush(1);
+    }
+    else {
+      $self->_new_err("Can't setup return status pipe");
+    }
+
+    if ($self->_internal_err) {
+      $internal_err
+        = $self->_internal_err->isa("IO::Pipe::End") ?
+        $self->_internal_err
+        : $self->_internal_err->writer();
+      $internal_err->autoflush(1);
+    }
+    else {
+      $self->_new_err("Can't setup error pipe");
+    }
 
     # Set pipes to redirect STDIN/STDOUT/STDERR + channels if desired
     if ($self->set_pipes()) {
-      my $stdout = $output_pipe->writer();
-      my $stderr = ($self->separate_err) ? $output_err_pipe->writer() : $stdout;
-      my $stdin  = $input_pipe->reader();
+      my $stdout;
+      my $stderr;
+      my $stdin;
+
+      $stdout = $output_pipe->writer() if $output_pipe;
+      $stderr
+        = (!$self->separate_err) ? $stdout
+        : $output_err_pipe ? $output_err_pipe->writer()
+        :                    undef;
+      $stdin = $input_pipe->reader() if $input_pipe;
       open STDERR, ">&", $stderr or !!$internal_err->write($!) or die $!;
       open STDOUT, ">&", $stdout or !!$internal_err->write($!) or die $!;
       open STDIN,  ">&", $stdin  or !!$internal_err->write($!) or die $!;
@@ -371,17 +406,19 @@ sub _fork {
       $self->error_stream($stderr);
       $self->write_stream($stdout);
 
-      $self->channel_in($channel_in->reader);
-      $self->channel_out($channel_out->writer);
-      $self->$_->autoflush($self->autoflush)
+      $self->channel_in($channel_in->reader)   if $channel_in;
+      $self->channel_out($channel_out->writer) if $channel_out;
+      eval { $self->$_->autoflush($self->autoflush) }
         for qw(read_stream error_stream write_stream channel_in channel_out);
     }
     $! = 0;
     my $rt;
     eval { $rt = $code->($self, @args); };
-    $internal_err->write($@) if $@;
-    $internal_err->write($!) if !$@ && $!;
-    $return->write($rt);
+    if ($internal_err) {
+      $internal_err->write($@) if $@;
+      $internal_err->write($!) if !$@ && $!;
+    }
+    $return->write($rt) if $return;
     $self->_exit($@ // $!);
   }
   $self->process_id($pid);
@@ -393,13 +430,14 @@ sub _fork {
 
   return $self unless $self->set_pipes();
 
-  $self->read_stream($output_pipe->reader);
-  $self->error_stream(
-    ($self->separate_err) ? $output_err_pipe->reader() : $self->read_stream());
-  $self->write_stream($input_pipe->writer);
-  $self->channel_in($channel_in->writer);
-  $self->channel_out($channel_out->reader);
-  $self->$_->autoflush($self->autoflush)
+  $self->read_stream($output_pipe->reader) if $output_pipe;
+  $self->error_stream((!$self->separate_err) ? $self->read_stream()
+    : $output_err_pipe ? $output_err_pipe->reader()
+    :                    undef);
+  $self->write_stream($input_pipe->writer) if $input_pipe;
+  $self->channel_in($channel_in->writer)   if $input_pipe;
+  $self->channel_out($channel_out->reader) if $input_pipe;
+  eval { $self->$_->autoflush($self->autoflush) }
     for qw(read_stream error_stream write_stream channel_in channel_out);
 
   return $self;
