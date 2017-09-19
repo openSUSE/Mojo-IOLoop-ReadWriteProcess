@@ -84,6 +84,15 @@ the following new ones.
 
 Emitted when the process produce errors.
 
+## start
+
+    $process->on(start => sub {
+      my ($process) = @_;
+      $process->is_running();
+    });
+
+Emitted when the process starts.
+
 ## stop
 
     $process->on(stop => sub {
@@ -426,6 +435,60 @@ It restarts the process if stopped, or if already running, it stops it first.
     $p->is_running;
 
 Boolean, it inspect if the process is currently running or not.
+
+# NAME
+
+Mojo::IOLoop::ReadWriteProcess::Pool - Pool of Mojo::IOLoop::ReadWriteProcess objects.
+
+# SYNOPSIS
+
+    my $n_proc = 20;
+    my $fired;
+
+    my $p = parallel sub { print "Hello world\n"; } => $n_proc;
+
+    # Subscribe to all "stop" events in the pool
+    $p->once(stop => sub { $fired++; });
+
+    # Start all processes belonging to the pool
+    $p->start();
+
+    # Receive the process output
+    $p->each(sub { my $p = shift; $p->getline(); });
+    $p->wait_stop;
+
+    # Get the last one! (it's a Mojo::Collection!)
+    $p->last()->stop();
+
+# METHODS
+
+[Mojo::IOLoop::ReadWriteProcess::Pool](https://metacpan.org/pod/Mojo::IOLoop::ReadWriteProcess::Pool) inherits all methods from [Mojo::Collection](https://metacpan.org/pod/Mojo::Collection) and implements
+the following new ones.
+Note: It proxies all the other methods of [Mojo::IOLoop::ReadWriteProcess](https://metacpan.org/pod/Mojo::IOLoop::ReadWriteProcess) for the whole process group.
+
+## get
+
+    use Mojo::IOLoop::ReadWriteProcess qw(parallel);
+    my $pool = parallel(sub { print "Hello" } => 5);
+    $pool->get(4);
+
+Get the element specified in the pool (starting from 0).
+
+## add
+
+    use Mojo::IOLoop::ReadWriteProcess qw(parallel);
+    my $pool = pool;
+    $pool->add(sub { print "Hello 2! " });
+
+Add the element specified in the pool.
+
+## remove
+
+    use Mojo::IOLoop::ReadWriteProcess qw(parallel);
+    my $pool = parallel(sub { print "Hello" } => 5);
+    $pool->remove(4);
+
+Remove the element specified in the pool.
 
 # LICENSE
 
