@@ -17,8 +17,8 @@ subtest parallel => sub {
     code => sub { sleep 2; print "Hello world\n"; },
     kill_sleeptime        => 1,
     sleeptime_during_kill => 1,
-    separate_err          => 0,
-    set_pipes             => 0,
+    separate_err          => 1,
+    set_pipes             => 1,
     $n_proc
   );
 
@@ -50,7 +50,7 @@ subtest batch => sub {
     Mojo::IOLoop::ReadWriteProcess->new(
       code => sub { sleep 2; print "Hello world\n" },
       separate_err => 0,
-      set_pipes    => 0
+      set_pipes    => 1
     )) for (1 .. $n_proc);
 
   my $c = batch @stack;
@@ -68,7 +68,7 @@ subtest batch => sub {
   $c->add(
     code         => sub { print "Hello world 3\n" },
     separate_err => 0,
-    set_pipes    => 0
+    set_pipes    => 1
   );
   $c->start();
   is $c->last->getline, "Hello world 3\n";
@@ -85,7 +85,7 @@ subtest batch => sub {
 };
 
 subtest "Working with pools" => sub {
-  my $n_proc = 2;
+  my $n_proc = 5;
   my $number = 1;
   my $pool   = batch;
   for (1 .. $n_proc) {
