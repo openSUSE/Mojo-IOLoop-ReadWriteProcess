@@ -94,7 +94,7 @@ our $VERSION = "0.04";
 use Mojo::Base 'Mojo::EventEmitter';
 use Mojo::File 'path';
 
-our @EXPORT_OK = qw(parallel batch process);
+our @EXPORT_OK = qw(parallel batch process pool);
 use Exporter 'import';
 use B::Deparse;
 use Carp 'confess';
@@ -139,6 +139,16 @@ the following new ones.
  });
 
 Emitted when the process produce errors.
+
+
+=head2 start
+
+ $process->on(start => sub {
+   my ($process) = @_;
+   $process->is_running();
+ });
+
+Emitted when the process starts.
 
 =head2 stop
 
@@ -946,6 +956,7 @@ sub DESTROY { +shift()->_shutdown; }
 *return_status = \&_status;
 *died          = \&_errored;
 *diag          = \&_diag;
+*pool          = \&batch;
 
 # Aliases - write
 *write         = \&write_stdin;
@@ -987,6 +998,35 @@ Ettore Di Giacinto E<lt>edigiacinto@suse.comE<gt>
 
 package Mojo::IOLoop::ReadWriteProcess::Pool;
 
+=encoding utf-8
+
+=head1 NAME
+
+Mojo::IOLoop::ReadWriteProcess::Pool - Pool of Mojo::IOLoop::ReadWriteProcess objects.
+
+=head1 SYNOPSIS
+
+    my $n_proc = 20;
+    my $fired;
+
+    my $p = parallel sub { print "Hello world\n"; } => $n_proc;
+
+    # Subscribe to all "stop" events in the pool
+    $p->once(stop => sub { $fired++; });
+
+    # Start all processes belonging to the pool
+    $p->start();
+
+    # Receive the process output
+    $p->each(sub { my $p = shift; $p->getline(); });
+    $p->wait_stop;
+
+    # Get the last one! (it's a Mojo::Collection!)
+    $p->last()->stop();
+
+
+=cut
+
 use Mojo::Base 'Mojo::Collection';
 
 sub _cmd {
@@ -1001,8 +1041,46 @@ sub _cmd {
   wantarray ? @r : $c;
 }
 
+=head1 METHODS
+
+L<Mojo::IOLoop::ReadWriteProcess::Pool> inherits all methods from L<Mojo::Collection> and implements
+the following new ones.
+Note: It proxies all the other methods of L<Mojo::IOLoop::ReadWriteProcess> for the whole process group.
+
+=head2 get
+
+    use Mojo::IOLoop::ReadWriteProcess qw(parallel);
+    my $pool = parallel(sub { print "Hello" } => 5);
+    $pool->get(4);
+
+Get the element specified in the pool (starting from 0).
+
+=cut
+
 sub get { my $s = shift; @{$s}[+shift()] }
+
+=head2 add
+
+    use Mojo::IOLoop::ReadWriteProcess qw(parallel);
+    my $pool = pool;
+    $pool->add(sub { print "Hello 2! " });
+
+Add the element specified in the pool.
+
+=cut
+
 sub add { push @{+shift()}, Mojo::IOLoop::ReadWriteProcess->new(@_) }
+
+=head2 remove
+
+    use Mojo::IOLoop::ReadWriteProcess qw(parallel);
+    my $pool = parallel(sub { print "Hello" } => 5);
+    $pool->remove(4);
+
+Remove the element specified in the pool.
+
+=cut
+
 sub remove { my $s = shift; delete @{$s}[+shift()] }
 
 sub AUTOLOAD {
@@ -1012,6 +1090,19 @@ sub AUTOLOAD {
   return if $fn eq "DESTROY";
   +shift()->_cmd(@_, $fn);
 }
+
+=head1 LICENSE
+
+Copyright (C) Ettore Di Giacinto.
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
+
+=head1 AUTHOR
+
+Ettore Di Giacinto E<lt>edigiacinto@suse.comE<gt>
+
+=cut
 
 package Mojo::IOLoop::ReadWriteProcess::Exception;
 use Mojo::Base -base;
