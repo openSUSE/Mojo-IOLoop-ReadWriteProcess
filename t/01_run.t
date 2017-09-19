@@ -207,7 +207,7 @@ killed'
   $p->stop;
   $p->wait;
   is $p->is_running, 0, 'process is shutten down';
-  is $p->died,       1, 'Process died';
+  is $p->errored,    1, 'Process died and errored';
 
 
   $p = Mojo::IOLoop::ReadWriteProcess->new(
@@ -337,8 +337,6 @@ subtest 'process code()' => sub {
   is $p->is_running,    0,   'process is not running';
   is $p->return_status, 256, 'right return code';
 
-  #is $p->died,          0,   'Process did not died';
-
   $p = Mojo::IOLoop::ReadWriteProcess->new(sub { die "Fatal error"; });
   my $event_fired = 0;
   $p->on(
@@ -352,7 +350,7 @@ subtest 'process code()' => sub {
   is $p->return_status, undef, 'process did not return';
   is $p->exit_status,   undef, 'process did not return';
 
-  is $p->died, 1, 'Process died';
+  is $p->errored, 1, 'Process died';
   like(${(@{$p->error})[0]}, qr/Fatal error/, 'right error');
   is $event_fired, 1, 'error event fired';
 
@@ -381,9 +379,8 @@ subtest 'process code()' => sub {
   $p->stop()->separate_err(1)->start();
   $p->write("a");
   $p->wait_stop();
-  is $p->died,         0,                    'Process did not died';
   like $p->stderr_all, qr/TEST error print/, 'read all from stderr works';
-  is $p->read_all,     '',                   'stdout is empty';
+  is $p->read_all, '', 'stdout is empty';
 };
 
 subtest process_debug => sub {

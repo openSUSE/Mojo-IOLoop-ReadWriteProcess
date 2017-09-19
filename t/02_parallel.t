@@ -10,12 +10,13 @@ use lib ("$FindBin::Bin/lib", "../lib", "lib");
 use Mojo::IOLoop::ReadWriteProcess qw(parallel batch);
 
 subtest parallel => sub {
-  my $n_proc = 30;
+  my $n_proc = 4;
   my $fired;
 
   my $c = parallel(
-    code           => sub { print "Hello world\n"; },
-    kill_sleeptime => 0,
+    code                  => sub { print "Hello world\n"; },
+    kill_sleeptime        => 1,
+    sleeptime_during_kill => 1,
     $n_proc
   );
 
@@ -39,14 +40,15 @@ subtest parallel => sub {
 subtest batch => sub {
   use Mojo::IOLoop::ReadWriteProcess qw(batch);
   my @stack;
-  my $n_proc = 30;
+  my $n_proc = 4;
   my $fired;
 
   push(
     @stack,
     Mojo::IOLoop::ReadWriteProcess->new(
-      code           => sub { print "Hello world\n" },
-      kill_sleeptime => 0
+      code                  => sub { print "Hello world\n" },
+      kill_sleeptime        => 1,
+      sleeptime_during_kill => 1
     )) for (1 .. $n_proc);
 
   my $c = batch @stack;
@@ -77,13 +79,17 @@ subtest batch => sub {
 };
 
 subtest "Working with pools" => sub {
-  my $n_proc = 30;
+  my $n_proc = 4;
   my $number = 1;
   my $pool   = batch;
   for (1 .. $n_proc) {
     $pool->add(
       code => sub { my $self = shift; my $number = shift; return 40 + $number },
-      args => $number
+      args                  => $number,
+      set_pipes             => 0,
+      separate_err          => 0,
+      kill_sleeptime        => 1,
+      sleeptime_during_kill => 1,
     );
     $number++;
   }
