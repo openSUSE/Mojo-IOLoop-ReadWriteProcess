@@ -18,7 +18,7 @@ fi
 cd "${0%/*}/.."
 
 # just to make sure we are at the right location
-test -e script/tidy || exit 1
+test -e tools/tidy || exit 1
 
 find -name '*.tdy' -delete
 
@@ -27,7 +27,7 @@ find . \( -name '*.p[lm]' -o -name '*.t' \) -print0 | xargs -0 perltidy --pro=..
 while read file; do
     if ! diff -u ${file%.tdy} $file; then
         if test -n "$check"; then
-            echo "RUN script/tidy script before checkin"
+            echo "RUN tools/tidy script before checkin"
             exit 1
         else
             mv -v $file ${file%.tdy}
