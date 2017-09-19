@@ -638,6 +638,7 @@ sub _getlines {
 Write data to process STDIN.
 
 =cut
+
 # Write to the controlled-process STDIN
 sub write_stdin {
   my ($self, @data) = @_;
@@ -944,7 +945,7 @@ sub DESTROY { +shift()->_shutdown; }
 *pid           = \&process_id;
 *return_status = \&_status;
 *died          = \&_errored;
-*diag = \&_diag;
+*diag          = \&_diag;
 
 # Aliases - write
 *write         = \&write_stdin;
@@ -1004,22 +1005,13 @@ sub get { my $s = shift; @{$s}[+shift()] }
 sub add { push @{+shift()}, Mojo::IOLoop::ReadWriteProcess->new(@_) }
 sub remove { my $s = shift; delete @{$s}[+shift()] }
 
-sub start  { shift->_cmd('start') }
-sub stop   { shift->_cmd('stop') }
-sub wait_stop { shift->_cmd('wait_stop') }
-sub once      { shift->_cmd(@_, 'once') }
-sub wait      { shift->_cmd(@_, 'wait') }
-sub restart { shift->_cmd('restart') }
-sub on      { shift->_cmd(@_, 'on') }
-sub emit    { shift->_cmd(@_, 'emit') }
-
-# sub AUTOLOAD {
-#   our $AUTOLOAD;
-#   my $fn = $AUTOLOAD;
-#   $fn =~ s/.*:://;
-#   return if $fn eq "DESTROY";
-#   +shift()->_cmd(@_, $fn);
-# }
+sub AUTOLOAD {
+  our $AUTOLOAD;
+  my $fn = $AUTOLOAD;
+  $fn =~ s/.*:://;
+  return if $fn eq "DESTROY";
+  +shift()->_cmd(@_, $fn);
+}
 
 package Mojo::IOLoop::ReadWriteProcess::Exception;
 use Mojo::Base -base;
