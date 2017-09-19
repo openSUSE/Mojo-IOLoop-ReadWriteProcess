@@ -18,7 +18,8 @@ subtest parallel => sub {
     kill_sleeptime        => 1,
     sleeptime_during_kill => 1,
     separate_err          => 0,
-    set_pipes             => 0 $n_proc
+    set_pipes             => 0,
+    $n_proc
   );
 
   isa_ok($c, "Mojo::IOLoop::ReadWriteProcess::Pool");
