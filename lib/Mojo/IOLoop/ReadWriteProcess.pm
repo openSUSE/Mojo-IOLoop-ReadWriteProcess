@@ -98,18 +98,6 @@ use Mojo::Base 'Mojo::EventEmitter';
 use Mojo::File 'path';
 
 our @EXPORT_OK = qw(parallel batch process);
-
-our @SAFE_SIG = grep {
-  not /^(
-    NUM\d+
-   |__[A-Z0-9]+__
-   |ALL|CATCHALL|DEFER|HOLD|IGNORE|MAX|PAUSE|RTMAX|RTMIN|SEGV|SETS
-   |
- )$/x
-} keys %SIG;
-
-our $myself;
-
 use Exporter 'import';
 use B::Deparse;
 use Carp 'confess';
@@ -288,8 +276,6 @@ sub _fork {
   my ($self, $code, @args) = @_;
   die "Can't spawn child without code" unless ref($code) eq "CODE";
 
-  $myself = \$self;
-
   # STDIN/STDOUT/STDERR redirect.
   my ($input_pipe, $output_pipe, $output_err_pipe);
 
@@ -362,16 +348,15 @@ sub _fork {
     local $SIG{TERM} = sub { $self->_exit(1) };
 
     my $return
-      = !$self->_internal_return                      ? undef
-      : $self->_internal_return->isa("IO::Pipe::End") ? $self->_internal_return
-      :   $self->_internal_return->writer();
+      = $self->_internal_return->isa("IO::Pipe::End") ?
+      $self->_internal_return
+      : $self->_internal_return->writer();
     my $internal_err
-      = !$self->_internal_err                      ? undef
-      : $self->_internal_err->isa("IO::Pipe::End") ? $self->_internal_err
-      :   $self->_internal_err->writer();
-
-    $return->autoflush(1)       if $return;
-    $internal_err->autoflush(1) if $internal_err;
+      = $self->_internal_err->isa("IO::Pipe::End") ?
+      $self->_internal_err
+      : $self->_internal_err->writer();
+    $return->autoflush(1);
+    $internal_err->autoflush(1);
 
     # Set pipes to redirect STDIN/STDOUT/STDERR + channels if desired
     if ($self->set_pipes()) {
@@ -392,7 +377,6 @@ sub _fork {
         for qw(read_stream error_stream write_stream channel_in channel_out);
     }
     $! = 0;
-    @SIG{@SAFE_SIG} = ('DEFAULT') x @SAFE_SIG;
     my $rt;
     eval { $rt = $code->($self, @args); };
     $internal_err->write($@) if $@;
@@ -402,10 +386,9 @@ sub _fork {
   }
   $self->process_id($pid);
 
-#$SIG{CHLD} = 'IGNORE';
   $SIG{CHLD} = sub {
     local ($!, $?);
-    $$myself->_shutdown while ((my $pid = waitpid(-1, WNOHANG)) > 0);
+    $self->_shutdown while ((my $pid = waitpid(-1, WNOHANG)) > 0);
   };
 
   return $self unless $self->set_pipes();
