@@ -7,7 +7,7 @@ use POSIX;
 use FindBin;
 use Mojo::File qw(tempfile path);
 use lib ("$FindBin::Bin/lib", "../lib", "lib");
-use Mojo::IOLoop::ReadWriteProcess qw(parallel batch);
+use Mojo::IOLoop::ReadWriteProcess qw(parallel batch process);
 
 subtest parallel => sub {
   my $n_proc = 4;
@@ -40,14 +40,13 @@ subtest parallel => sub {
 };
 
 subtest batch => sub {
-  use Mojo::IOLoop::ReadWriteProcess qw(batch);
   my @stack;
   my $n_proc = 2;
   my $fired;
 
   push(
     @stack,
-    Mojo::IOLoop::ReadWriteProcess->new(
+    process(
       code => sub { sleep 2; print "Hello world\n" },
       separate_err => 0,
       set_pipes    => 1
