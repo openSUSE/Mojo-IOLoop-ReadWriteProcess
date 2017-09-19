@@ -85,9 +85,6 @@ Mojo::IOLoop::ReadWriteProcess - Execute external programs or internal code bloc
 
 Mojo::IOLoop::ReadWriteProcess is yet another process manager.
 
-
-=head1 METHODS
-
 =cut
 
 package Mojo::IOLoop::ReadWriteProcess;
@@ -129,11 +126,35 @@ has _deparse              => sub { B::Deparse->new }
 
 has _default_kill_signal => POSIX::SIGTERM;
 
+=head1 EVENTS
+
+L<Mojo::IOLoop::ReadWriteProcess> inherits all events from L<Mojo::EventEmitter> and can emit
+the following new ones.
+
+=head2 process_error
+
+ $process->on(process_error => sub {
+   my ($e) = @_;
+   @errors = @{$e};
+ });
+
+Emitted when the process produce errors.
+
+=head2 stop
+
+ $process->on(stop => sub {
+   my ($process) = @_;
+   $process->restart();
+ });
+
+Emitted when the process stops.
+
 =head1 ATTRIBUTES
 
-=head2 execute
+L<Mojo::IOLoop::ReadWriteProcess> inherits all attributes from L<Mojo::EventEmitter> and implements
+the following new ones.
 
-The program you want to run.
+=head2 execute
 
     use Mojo::IOLoop::ReadWriteProcess;
     my $process = Mojo::IOLoop::ReadWriteProcess->new(execute => "/usr/bin/perl");
@@ -141,9 +162,9 @@ The program you want to run.
     $pool->on( stop => sub { print "Process: ".$p->pid." finished"; );
     $pool->stop();
 
-=head2 code
+C<execute> should contain the external program that you wish to run.
 
-The code you want to run in background.
+=head2 code
 
     use Mojo::IOLoop::ReadWriteProcess;
     my $process = Mojo::IOLoop::ReadWriteProcess->new(code => sub { print "Hello" } );
@@ -151,7 +172,9 @@ The code you want to run in background.
     $pool->on( stop => sub { print "Process: ".$p->pid." finished"; );
     $pool->stop();
 
-You do not need to specify code, it is implied if no arguments is given.
+It represent the code you want to run in background.
+
+You do not need to specify C<code>, it is implied if no arguments is given.
 
     my $process = Mojo::IOLoop::ReadWriteProcess->new(sub { print "Hello" });
     $pool->start();
@@ -159,8 +182,6 @@ You do not need to specify code, it is implied if no arguments is given.
     $pool->stop();
 
 =head2 args
-
-Array or arrayref of options to pass by to the external binary or the code block.
 
     use Mojo::IOLoop::ReadWriteProcess;
     my $process = Mojo::IOLoop::ReadWriteProcess->new(code => sub { print "Hello ".shift() }, args => "User" );
@@ -170,9 +191,9 @@ Array or arrayref of options to pass by to the external binary or the code block
 
     # The process will print "Hello User"
 
-=head2 blocking_stop
+Array or arrayref of options to pass by to the external binary or the code block.
 
-Set it to 1 if you want to do blocking stop of the process.
+=head2 blocking_stop
 
     use Mojo::IOLoop::ReadWriteProcess;
     my $process = Mojo::IOLoop::ReadWriteProcess->new(code => sub { print "Hello" }, blocking_stop => 1 );
@@ -180,10 +201,9 @@ Set it to 1 if you want to do blocking stop of the process.
     $pool->on( stop => sub { print "Process: ".$p->pid." finished"; );
     $pool->stop(); # Will wait indefinitely until the process is stopped
 
+Set it to 1 if you want to do blocking stop of the process.
 
 =head2 max_kill_attempts
-
-Defaults to 5, is the number of attempts before bailing out.
 
     use Mojo::IOLoop::ReadWriteProcess;
     my $process = Mojo::IOLoop::ReadWriteProcess->new(code => sub { print "Hello" }, max_kill_attempts => 50 );
@@ -191,18 +211,42 @@ Defaults to 5, is the number of attempts before bailing out.
     $pool->on( stop => sub { print "Process: ".$p->pid." finished"; );
     $pool->stop(); # It will attempt to send SIGTERM 50 times.
 
+Defaults to C<5>, is the number of attempts before bailing out.
+
 It can be used with blocking_stop, so if the number of attempts are exhausted,
 a SIGKILL and waitpid will be tried at the end.
 
 =head2 kill_sleeptime
 
-Defaults to 1, it's the seconds to wait before attempting SIGKILL when blocking_stop is setted to 1.
+Defaults to C<1>, it's the seconds to wait before attempting SIGKILL when blocking_stop is setted to 1.
 
 =head2 separate_err
 
-Defaults to 1, it will create a separate channel to intercept process STDERR.
+Defaults to C<1>, it will create a separate channel to intercept process STDERR,
+otherwise it will be redirected to STDOUT.
+
+=head2 verbose
+
+Defaults to C<1>, it indicates message verbosity.
+
+=head2 set_pipes
+
+Defaults to C<1>, If enabled, additional pipes for process communication are automatically set up.
+
+
+=head2 autoflush
+
+Defaults to C<1>, If enabled autoflush of handlers is enabled automatically.
+
+=head2 error
+
+Returns a L<Mojo::Collection> of errors.
+Note: errors that can be captured only at the end of the process
 
 =head1 METHODS
+
+L<Mojo::IOLoop::ReadWriteProcess> inherits all methods from L<Mojo::EventEmitter> and implements
+the following new ones.
 
 =cut
 
@@ -213,25 +257,52 @@ sub new {
   return shift->SUPER::new(@_);
 }
 
+
+=head2 process()
+
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+    my $p = process sub { print "Hello\n" };
+    $p->start()->wait_stop;
+
+or even:
+
+    process(sub { print "Hello\n" })->on( stop => sub { print "Done!\n"; } )->start->wait_stop;
+
+Returns a L<Mojo::IOLoop::ReadWriteProcess> object that represent a process.
+
+It accepts the same arguments as L<Mojo::IOLoop::ReadWriteProcess>.
+
+=cut
+
 sub process { Mojo::IOLoop::ReadWriteProcess->new(@_) }
+
+=head2 diag()
+
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+    process(sub { print "Hello\n" })->on( stop => sub { shift->diag("Done!") } )->start->wait_stop;
+
+Internal function to print information to STDERR if verbose attribute is set or either DEBUG mode enabled.
+You can use it if you wish to display information on the process status.
+
+=cut
 
 sub _diag {
   my ($self, @messages) = @_;
   my $caller = (caller(1))[3];
-  print STDERR ">> ${caller}(): @messages\n" if $self->verbose;
+  print STDERR ">> ${caller}(): @messages\n" if ($self->verbose || DEBUG);
 }
 
 =head2 parallel()
-
-Returns a L<Mojo::IOLoop::ReadWriteProcess::Pool> object that represent a group of processes.
-
-It accepts the same arguments as L<Mojo::IOLoop::ReadWriteProcess>, and the last one represent the number of processes to generate.
 
     use Mojo::IOLoop::ReadWriteProcess qw(parallel);
     my $pool = parallel sub { print "Hello\n" } => 5;
     $pool->start();
     $pool->on( stop => sub { print "Process: ".$p->pid." finished"; );
     $pool->stop();
+
+Returns a L<Mojo::IOLoop::ReadWriteProcess::Pool> object that represent a group of processes.
+
+It accepts the same arguments as L<Mojo::IOLoop::ReadWriteProcess>, and the last one represent the number of processes to generate.
 
 =cut
 
@@ -240,8 +311,22 @@ sub parallel {
   $c->add(@_) for 1 .. +pop();
   return $c;
 }
+
+=head2 batch()
+
+    use Mojo::IOLoop::ReadWriteProcess qw(batch);
+    my $pool = batch;
+    $pool->add(sub { print "Hello\n" });
+    $pool->on(stop => sub { shift->_diag("Done!") })->start->wait_stop;
+
+Returns a L<Mojo::IOLoop::ReadWriteProcess::Pool> object generated from supplied arguments.
+It accepts as input the same parameter of L<Mojo::IOLoop::ReadWriteProcess::Pool> constructor ( see parallel() ).
+
+=cut
+
 sub batch { return Mojo::IOLoop::ReadWriteProcess::Pool->new(@_) }
 
+# Use open3 to launch external program.
 sub _open {
   my ($self, @args) = @_;
   $self->_diag('Execute: ' . (join ', ', map { "'$_'" } @args)) if DEBUG;
@@ -272,6 +357,7 @@ sub _open {
   return $self;
 }
 
+# Handle forking of code
 sub _fork {
   my ($self, $code, @args) = @_;
   die "Can't spawn child without code" unless ref($code) eq "CODE";
@@ -448,6 +534,8 @@ sub _new_err {
   my $err  = Mojo::IOLoop::ReadWriteProcess::Exception->new(@_);
   push(@{$self->error}, $err);
 
+  # XXX: Need to switch, we should emit one error at the time, and _shutdown
+  # should emit just the ones wasn't emitted
   $self->emit(process_error => [$err]);
   return $self;
 }
@@ -458,15 +546,60 @@ sub _exit {
   exit($code);
 }
 
+
+=head2 wait()
+
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+    my $p = process(sub { print "Hello\n" })->wait;
+    # ... here now you can mangle $p handlers and such
+
+Waits until the process finishes, but does not performs cleanup operations (until stop is called).
+
+=cut
+
 sub wait {
   my $self = shift;
   sleep $self->sleeptime_during_kill while ($self->is_running);
   return $self;
 }
 
+=head2 wait_stop()
+
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+    my $p = process(sub { print "Hello\n" })->start->wait_stop;
+    # $p is not running anymore, and all possible events have been granted to be emitted.
+
+Waits until the process finishes, and perform cleanup operations.
+
+=cut
+
 sub wait_stop { shift->wait->stop }
 
+=head2 errored()
+
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+    my $p = process(sub { die "Nooo" })->start->wait_stop;
+    $p->errored; # will return "1"
+
+Returns a boolean indicating if the process had errors or not.
+
+=cut
+
 sub errored { !!@{shift->error} ? 1 : 0 }
+
+=head2 write_pidfile()
+
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+    my $p = process(sub { die "Nooo" } );
+    $p->pidfile("foobar");
+    $p->start();
+    $p->write_pidfile();
+
+Forces writing PID of process to specified pidfile in the attributes of the object.
+Useful only if the process have been already started, otherwise if a pidfile it's supplied
+as attribute, it will be done automatically.
+
+=cut
 
 sub write_pidfile {
   my ($self, $pidfile) = @_;
@@ -495,6 +628,16 @@ sub _getlines {
   wantarray ? shift->getlines : join '\n', @{[shift->getlines]};
 }
 
+=head2 write_stdin()
+
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+    my $p = process(sub { my $a = <STDIN>; print STDERR "Hello my name is $a\n"; } )->start;
+    $p->write_stdin("Larry");
+    # process STDERR will contain: "Hello my name is Larry\n"
+
+Write data to process STDIN.
+
+=cut
 # Write to the controlled-process STDIN
 sub write_stdin {
   my ($self, @data) = @_;
@@ -502,18 +645,83 @@ sub write_stdin {
   return $self;
 }
 
-# Write to the channel
+=head2 write_channel()
+
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+    my $p = process(sub {
+                          my $parent_output = $self->channel_out;
+                          my $parent_input  = $self->channel_in;
+
+                          while(defined(my $line = <$parent_input>)) {
+                            print $parent_output "PONG\n" if $line =~ /PING/i;
+                          }
+                      } )->start;
+    $p->write_channel("PING");
+    my $out = $p->read_channel;
+    # $out is PONG
+    my $child_output = $self->channel_output;
+    while(defined(my $line = <$child_output>)) {
+        print "Process is replying back with $line!\n";
+        $p->write_channel("PING");
+    }
+
+Write data to process channel. Note, it's not STDIN, neither STDOUT, it's a complete separate channel
+dedicated to parent-child communication.
+In the parent process, you can access to the same pipes (but from the opposite direction):
+
+    my $child_output = $self->channel_out;
+    my $child_input  = $self->channel_in;
+
+=cut
+
 sub write_channel {
   my ($self, @data) = @_;
   _syswrite($self->channel_in, @data);
   return $self;
 }
 
-# Get a line from the current process output stream
+=head2 read_stdout()
+
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+    my $p = process(sub {
+                          print "Boo\n"
+                      } )->start;
+    $p->read_stdout;
+
+Gets a single line from process STDOUT.
+
+=cut
+
 sub read_stdout { _getline(shift->read_stream) }
 
-# Get a line from the process channel
+=head2 read_channel()
+
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+    my $p = process(sub {
+                          my $parent_output = $self->channel_out;
+                          my $parent_input  = $self->channel_in;
+
+                          print $parent_output "PONG\n";
+                      } )->start;
+    $p->read_channel;
+
+Gets a single line from process channel.
+
+=cut
+
 sub read_channel { _getline(shift->channel_out) }
+
+=head2 read_stderr()
+
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+    my $p = process(sub {
+                          print STDERR "Boo\n"
+                      } )->start;
+    $p->read_stderr;
+
+Gets a single line from process STDERR.
+
+=cut
 
 # Get a line from the current process output stream
 sub read_stderr {
@@ -521,19 +729,65 @@ sub read_stderr {
   _getline(shift->error_stream);
 }
 
+=head2 read_all_stdout()
+
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+    my $p = process(sub {
+                          print "Boo\n"
+                      } )->start;
+    $p->read_all_stdout;
+
+Gets all the STDOUT output of the process.
+
+=cut
+
 # Get all lines from the current process output stream
 sub read_all_stdout { _getlines(shift->read_stream) }
+
+=head2 read_all_channel()
+
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+    my $p = process(sub {
+                          shift->channel_out->write("Ping")
+                      } )->start;
+    $p->read_all_channel;
+
+Gets all the channel output of the process.
+
+=cut
 
 # Get all lines from the process channel
 sub read_all_channel { _getlines(shift->channel_out); }
 
-# Get all lines from the current process output stream
+
+=head2 read_all_stderr()
+
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+    my $p = process(sub {
+                          print STDERR "Boo\n"
+                      } )->start;
+    $p->read_all_stderr;
+
+Gets all the STDERR output of the process.
+
+=cut
+
 sub read_all_stderr {
   return $_[0]->getline unless $_[0]->separate_err;
   _getlines(shift->error_stream);
 }
 
-# Start the process
+=head2 start()
+
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+    my $p = process(sub {
+                          print STDERR "Boo\n"
+                      } )->start;
+
+Starts the process
+
+=cut
+
 sub start {
   my $self = shift;
   return $self if $self->is_running;
@@ -559,9 +813,33 @@ sub start {
   return $self;
 }
 
+=head2 exit_status()
+
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+    my $p = process( execute => "/path/to/bin" )->start;
+
+    $p->wait_stop->exit_status;
+
+Inspect the process exit status, it works for forks too, but it does the shifting magic,
+which is particularly useful when dealing with external processes.
+
+=cut
+
 sub exit_status {
   $_[0]->_status ? shift->_status >> 8 : undef;
 }
+
+=head2 signal()
+
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+    use POSIX;
+    my $p = process( execute => "/path/to/bin" )->start;
+
+    $p->signal(POSIX::SIGKILL);
+
+Send a signal to the process
+
+=cut
 
 sub signal {
   my $self = shift;
@@ -572,7 +850,21 @@ sub signal {
   return $self;
 }
 
-# Stop the process and retrieve child status
+=head2 stop()
+
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+    use POSIX;
+    my $p = process( execute => "/path/to/bin" )->start->stop;
+
+Stop the process. Unless you use C<wait_stop()>, it will attempt to kill the process
+without waiting the process to finish. By defaults it send C<SIGTERM> to the child.
+You can change that by defining the internal attribute C<_default_kill_signal>.
+Note, if you want to be *sure* that the process gets killed, you can enable the
+C<blocking_stop> attribute, that will attempt to send C<SIGKILL> after C<max_kill_attempts>
+is reached.
+
+=cut
+
 sub stop {
   my $self = shift;
   return $self->_shutdown unless $self->is_running;
@@ -622,10 +914,28 @@ sub _shutdown {
   return $self;
 }
 
-# Restart process if running, otherwise starts it
+=head2 restart()
+
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+    my $p = process( execute => "/path/to/bin" )->restart;
+
+It restarts the process if stopped, or if already running, it stops it first.
+
+=cut
+
 sub restart { $_[0]->is_running ? $_[0]->stop->start : $_[0]->start; }
 
-# Check if process is currently running
+
+=head2 is_running()
+
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+    my $p = process( execute => "/path/to/bin" )->start;
+    $p->is_running;
+
+Boolean, it inspect if the process is currently running or not.
+
+=cut
+
 sub is_running { return $_[0]->process_id ? kill 0 => $_[0]->process_id : 0; }
 
 sub DESTROY { +shift()->_shutdown; }
@@ -634,6 +944,7 @@ sub DESTROY { +shift()->_shutdown; }
 *pid           = \&process_id;
 *return_status = \&_status;
 *died          = \&_errored;
+*diag = \&_diag;
 
 # Aliases - write
 *write         = \&write_stdin;
@@ -692,12 +1003,12 @@ sub _cmd {
 sub get { my $s = shift; @{$s}[+shift()] }
 sub add { push @{+shift()}, Mojo::IOLoop::ReadWriteProcess->new(@_) }
 sub remove { my $s = shift; delete @{$s}[+shift()] }
+
 sub start  { shift->_cmd('start') }
 sub stop   { shift->_cmd('stop') }
 sub wait_stop { shift->_cmd('wait_stop') }
 sub once      { shift->_cmd(@_, 'once') }
 sub wait      { shift->_cmd(@_, 'wait') }
-
 sub restart { shift->_cmd('restart') }
 sub on      { shift->_cmd(@_, 'on') }
 sub emit    { shift->_cmd(@_, 'emit') }
