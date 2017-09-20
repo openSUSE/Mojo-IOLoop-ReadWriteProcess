@@ -919,6 +919,16 @@ Gets all the STDERR output of the process.
 
 Send a signal to the process
 
+=head1 DEBUGGING
+
+You can set the MOJO_EVENTEMITTER_DEBUG environment variable to get some advanced diagnostics information printed to STDERR.
+
+    MOJO_EVENTEMITTER_DEBUG=1
+
+Also, you can set MOJO_PROCESS_DEBUG environment variable to get diagnostics about the process execution.
+
+    MOJO_PROCESS_DEBUG=1
+
 =head1 LICENSE
 
 Copyright (C) Ettore Di Giacinto.
