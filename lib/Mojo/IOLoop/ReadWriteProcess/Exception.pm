@@ -50,3 +50,5 @@ it under the same terms as Perl itself.
 =head1 AUTHOR
 
 Ettore Di Giacinto E<lt>edigiacinto@suse.comE<gt>
+
+=cut

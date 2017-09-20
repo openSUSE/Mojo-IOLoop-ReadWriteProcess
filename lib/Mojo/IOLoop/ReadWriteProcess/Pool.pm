@@ -5,9 +5,19 @@ use Mojo::Base 'Mojo::Collection';
 my $maximum_processes = 100;
 
 sub get { my $s = shift; @{$s}[+shift()] }
-sub add { my $c = shift; push @{$c}, Mojo::IOLoop::ReadWriteProcess->new(@_) if $c->size < $maximum_processes }
+
+sub add {
+  my $c = shift;
+  push @{$c}, Mojo::IOLoop::ReadWriteProcess->new(@_)
+    if $c->size < $maximum_processes;
+}
 sub remove { my $s = shift; delete @{$s}[+shift()] }
-sub maximum_processes { my (undef,$max) = @_; $maximum_processes = $max if $max; $maximum_processes }
+
+sub maximum_processes {
+  my (undef, $max) = @_;
+  $maximum_processes = $max if $max;
+  $maximum_processes;
+}
 
 sub _cmd {
   my $c    = shift;
@@ -108,3 +118,5 @@ it under the same terms as Perl itself.
 =head1 AUTHOR
 
 Ettore Di Giacinto E<lt>edigiacinto@suse.comE<gt>
+
+=cut

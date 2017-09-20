@@ -48,7 +48,8 @@ sub new {
 }
 
 sub process { Mojo::IOLoop::ReadWriteProcess->new(@_) }
-sub batch { Mojo::IOLoop::ReadWriteProcess::Pool->new(@_) }
+sub batch   { Mojo::IOLoop::ReadWriteProcess::Pool->new(@_) }
+
 sub parallel {
   my $c = batch();
   $c->add(@_) for 1 .. +pop();
@@ -289,11 +290,11 @@ sub wait {
   return $self;
 }
 
-sub wait_stop { shift->wait->stop }
-sub errored { !!@{shift->error} ? 1 : 0 }
+sub wait_stop   { shift->wait->stop }
+sub errored     { !!@{shift->error} ? 1 : 0 }
 sub exit_status { $_[0]->_status ? shift->_status >> 8 : undef }
-sub restart { $_[0]->is_running ? $_[0]->stop->start : $_[0]->start; }
-sub is_running { return $_[0]->process_id ? kill 0 => $_[0]->process_id : 0; }
+sub restart     { $_[0]->is_running ? $_[0]->stop->start : $_[0]->start; }
+sub is_running  { return $_[0]->process_id ? kill 0 => $_[0]->process_id : 0; }
 
 sub write_pidfile {
   my ($self, $pidfile) = @_;
@@ -337,14 +338,18 @@ sub write_channel {
 
 # Get all lines from the current process output stream
 sub read_all_stdout { _getlines(shift->read_stream) }
-sub read_all_channel { _getlines(shift->channel_out); } # Get all lines from the process channel
-sub read_stdout { _getline(shift->read_stream) }
+
+sub read_all_channel {
+  _getlines(shift->channel_out);
+}    # Get all lines from the process channel
+sub read_stdout  { _getline(shift->read_stream) }
 sub read_channel { _getline(shift->channel_out) }
 
 sub read_all_stderr {
   return $_[0]->getline unless $_[0]->separate_err;
   _getlines(shift->error_stream);
 }
+
 # Get a line from the current process output stream
 sub read_stderr {
   return $_[0]->getline unless $_[0]->separate_err;
@@ -437,10 +442,10 @@ sub _shutdown {
 sub DESTROY { +shift()->_shutdown; }
 
 # General alias
-*pid           = \&process_id;
-*died          = \&_errored;
-*diag          = \&_diag;
-*pool          = \&batch;
+*pid  = \&process_id;
+*died = \&_errored;
+*diag = \&_diag;
+*pool = \&batch;
 
 # Aliases - write
 *write         = \&write_stdin;
