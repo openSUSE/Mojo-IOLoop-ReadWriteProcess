@@ -114,6 +114,17 @@ subtest "Working with pools" => sub {
   ok $pool->get(0) != $pool->get(1);
   $pool->remove(3);
   is $pool->get(3), undef;
+
+  # Push the maximum_processes boundaries and let's see events are fired.
+  $n_proc = 1000;
+  my $fired;
+  my $p = pool;
+  $p->maximum_processes($n_proc);
+  $p->add(code => sub { exit(20) }, internal_pipes => 0, set_pipes => 0)
+    for 1 .. $n_proc;
+  $p->once(stop => sub { $fired++ });
+  $p->start->wait_stop;
+  is $fired, $n_proc;
 };
 
 subtest maximum_processes => sub {
