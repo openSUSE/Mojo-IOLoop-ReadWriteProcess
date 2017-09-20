@@ -7,7 +7,7 @@ use POSIX;
 use FindBin;
 use Mojo::File qw(tempfile path);
 use lib ("$FindBin::Bin/lib", "../lib", "lib");
-use Mojo::IOLoop::ReadWriteProcess qw(parallel batch process);
+use Mojo::IOLoop::ReadWriteProcess qw(parallel batch process pool);
 
 subtest parallel => sub {
   my $n_proc = 4;
@@ -114,6 +114,16 @@ subtest "Working with pools" => sub {
   ok $pool->get(0) != $pool->get(1);
   $pool->remove(3);
   is $pool->get(3), undef;
+};
+
+subtest maximum_processes => sub {
+  my $p = pool();
+  $p->maximum_processes(1);
+  $p->add(sub { print "Hello\n" });
+  $p->add(sub { print "Wof\n" });
+  $p->add(sub { print "Wof2\n" });
+  is $p->get(1), undef;
+  is $p->size, 1;
 };
 
 done_testing;

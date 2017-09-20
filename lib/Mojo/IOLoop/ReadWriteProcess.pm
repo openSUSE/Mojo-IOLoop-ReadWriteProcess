@@ -21,7 +21,7 @@ use Symbol 'gensym';
 use constant DEBUG => $ENV{MOJO_PROCESS_DEBUG};
 
 has [
-  qw(execute code process_id pidfile),
+  qw(execute code process_id pidfile return_status),
   qw(channel_in channel_out write_stream read_stream error_stream),
   qw(_internal_err _internal_return _status)
 ];
@@ -39,7 +39,6 @@ has _deparse              => sub { B::Deparse->new }
   if DEBUG;
 
 has _default_kill_signal => POSIX::SIGTERM;
-
 
 # Override new() just to support sugar syntax
 # so it is possible to do : process->new(sub{ print "Hello World\n" })->start->stop; and so on.
@@ -136,6 +135,8 @@ sub _fork {
       my @result_return;
       my @result_error;
 
+      $self->_status($?) if defined $?;
+
       if ($self->_internal_return) {
         $return_reader
           = $self->_internal_return->isa("IO::Pipe::End")
@@ -145,7 +146,7 @@ sub _fork {
         $self->_new_err('Cannot read from return code pipe') && return
           unless IO::Select->new($return_reader)->can_read(10);
         @result_return = $return_reader->getlines();
-        $self->_status(@result_return) if @result_return;
+        $self->return_status(@result_return) if @result_return;
 
         $self->_diag(
           "Forked code Process Returns: " . join("\n", @result_return))
@@ -437,7 +438,6 @@ sub DESTROY { +shift()->_shutdown; }
 
 # General alias
 *pid           = \&process_id;
-*return_status = \&_status;
 *died          = \&_errored;
 *diag          = \&_diag;
 *pool          = \&batch;
@@ -700,8 +700,17 @@ Boolean, it inspect if the process is currently running or not.
 
     $p->wait_stop->exit_status;
 
-Inspect the process exit status, it works for forks too, but it does the shifting magic,
-which is particularly useful when dealing with external processes.
+Inspect the process exit status, it does the shifting magic, to access to the real value
+call C<_status()>.
+
+=head2 return_status()
+
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+    my $p = process( sub { return 42 } )->start;
+
+    my $s = $p->wait_stop->return_status; # 42
+
+Inspect the codeblock return.
 
 =head2 process()
 

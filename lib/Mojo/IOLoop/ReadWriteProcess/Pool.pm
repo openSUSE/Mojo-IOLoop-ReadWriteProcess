@@ -2,9 +2,12 @@ package Mojo::IOLoop::ReadWriteProcess::Pool;
 our $VERSION = "0.04";
 use Mojo::Base 'Mojo::Collection';
 
+my $maximum_processes = 100;
+
 sub get { my $s = shift; @{$s}[+shift()] }
-sub add { push @{+shift()}, Mojo::IOLoop::ReadWriteProcess->new(@_) }
+sub add { my $c = shift; push @{$c}, Mojo::IOLoop::ReadWriteProcess->new(@_) if $c->size < $maximum_processes }
 sub remove { my $s = shift; delete @{$s}[+shift()] }
+sub maximum_processes { my (undef,$max) = @_; $maximum_processes = $max if $max; $maximum_processes }
 
 sub _cmd {
   my $c    = shift;
@@ -36,6 +39,7 @@ Mojo::IOLoop::ReadWriteProcess::Pool - Pool of Mojo::IOLoop::ReadWriteProcess ob
 
 =head1 SYNOPSIS
 
+    use Mojo::IOLoop::ReadWriteProcess qw(parallel);
     my $n_proc = 20;
     my $fired;
 
@@ -70,12 +74,11 @@ Get the element specified in the pool (starting from 0).
 
 =head2 add
 
-    use Mojo::IOLoop::ReadWriteProcess qw(parallel);
-    my $pool = pool;
+    use Mojo::IOLoop::ReadWriteProcess qw(pool);
+    my $pool = pool(maximum_processes => 2);
     $pool->add(sub { print "Hello 2! " });
 
 Add the element specified in the pool.
-
 
 =head2 remove
 
@@ -85,6 +88,15 @@ Add the element specified in the pool.
 
 Remove the element specified in the pool.
 
+=head2 maximum_processes
+
+    use Mojo::IOLoop::ReadWriteProcess qw(parallel);
+    my $pool = parallel(sub { print "Hello" } => 5);
+    $pool->maximum_processes(30);
+    $pool->add(...);
+
+Prevent from adding processes to the pool. If we reach C<maximum_processes> number
+of processes, C<add()> will refuse to add more to the pool.
 
 =head1 LICENSE
 
