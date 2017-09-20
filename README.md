@@ -167,6 +167,11 @@ Defaults to `1`, it indicates message verbosity.
 
 Defaults to `1`, If enabled, additional pipes for process communication are automatically set up.
 
+## internal\_pipes
+
+Defaults to `1`, If enabled, additional pipes for retreiving process return and errors are set up.
+Note: If you disable that, the only information provided by the process will be the exit\_status.
+
 ## autoflush
 
 Defaults to `1`, If enabled autoflush of handlers is enabled automatically.
