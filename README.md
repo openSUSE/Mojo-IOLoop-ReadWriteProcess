@@ -10,53 +10,34 @@ Mojo::IOLoop::ReadWriteProcess - Execute external programs or internal code bloc
     # Code fork
     my $process = Mojo::IOLoop::ReadWriteProcess->new(sub { print "Hello\n" });
     $process->start();
-    my $is_running = $process->is_running(); # Boolean
-    my $stdout_line = $process->getline(); # Will return "Hello\n"
-    my $pid = $process->pid(); # Process id
+    print "Running\n" if $process->is_running();
+    $process->getline(); # Will return "Hello\n"
+    $process->pid(); # Process id
     $process->stop();
     $process->wait_stop(); # if you intend to wait its lifespan
 
-
     # Methods can be chained, thus this is valid:
-    my $p = Mojo::IOLoop::ReadWriteProcess->new(sub { print "Hello\n" })->start()->stop();
-    $output = $p->getline();
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+    $output = process( sub { print "Hello\n" } )->start()->wait_stop->getline;
 
     # Handles seamelessy also external processes:
-    my $process = Mojo::IOLoop::ReadWriteProcess->new(execute=> '/path/to/bin' )->args(qw(foo bar baz));
+    my $process = process(execute=> '/path/to/bin' )->args(qw(foo bar baz));
     $process->start();
     my $line_output = $process->getline();
     my $pid = $process->pid();
     $process->stop();
-
-    # Errors (if any) are stored in the object:
     my @errors = $process->error;
 
-    $process = Mojo::IOLoop::ReadWriteProcess->new(
-               separate_err => 0, # merge STDERR to STDOUT
-               code => sub {
-                              my ($self) = shift;
-
-                              # Access to the parent communication
-                              # channels from the child
-                              my $parent_output = $self->channel_out;
-                              my $parent_input  = $self->channel_in;
-
-                              print "TEST normal print\n";
-                              print STDERR "TEST error print\n";
-
-                              $self->channel_out->write("PING?");
-
-                              return "256";
-               })->start();
-    $process->wait_stop; # We need to stop it to retrieve the exit status
+    # Get process return value
+    $process = process( sub { return "256"; } )->start()->wait_stop;
+    # We need to stop it to retrieve the exit status
     my $return = $process->return_status;
-    # my $return = $process->exit_status; # equivalent
-    # $return is 256
 
-    # Still we can access directly to handlers from the object:
+    # We can access directly to handlers from the object:
     my $stdout = $process->read_stream;
     my $stdin = $process->write_stream;
     my $stderr = $process->error_stream;
+
     # So this works:
     print $stdin "foo bar\n";
     my @lines = <$stdout>;
@@ -199,6 +180,62 @@ Note: errors that can be captured only at the end of the process
 
 [Mojo::IOLoop::ReadWriteProcess](https://metacpan.org/pod/Mojo::IOLoop::ReadWriteProcess) inherits all methods from [Mojo::EventEmitter](https://metacpan.org/pod/Mojo::EventEmitter) and implements
 the following new ones.
+
+## start()
+
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+    my $p = process(sub {
+                          print STDERR "Boo\n"
+                      } )->start;
+
+Starts the process
+
+## stop()
+
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+    use POSIX;
+    my $p = process( execute => "/path/to/bin" )->start->stop;
+
+Stop the process. Unless you use `wait_stop()`, it will attempt to kill the process
+without waiting the process to finish. By defaults it send `SIGTERM` to the child.
+You can change that by defining the internal attribute `_default_kill_signal`.
+Note, if you want to be \*sure\* that the process gets killed, you can enable the
+`blocking_stop` attribute, that will attempt to send `SIGKILL` after `max_kill_attempts`
+is reached.
+
+## restart()
+
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+    my $p = process( execute => "/path/to/bin" )->restart;
+
+It restarts the process if stopped, or if already running, it stops it first.
+
+## is\_running()
+
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+    my $p = process( execute => "/path/to/bin" )->start;
+    $p->is_running;
+
+Boolean, it inspect if the process is currently running or not.
+
+## exit\_status()
+
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+    my $p = process( execute => "/path/to/bin" )->start;
+
+    $p->wait_stop->exit_status;
+
+Inspect the process exit status, it does the shifting magic, to access to the real value
+call `_status()`.
+
+## return\_status()
+
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+    my $p = process( sub { return 42 } )->start;
+
+    my $s = $p->wait_stop->return_status; # 42
+
+Inspect the codeblock return.
 
 ## process()
 
@@ -379,25 +416,6 @@ Gets all the channel output of the process.
 
 Gets all the STDERR output of the process.
 
-## start()
-
-    use Mojo::IOLoop::ReadWriteProcess qw(process);
-    my $p = process(sub {
-                          print STDERR "Boo\n"
-                      } )->start;
-
-Starts the process
-
-## exit\_status()
-
-    use Mojo::IOLoop::ReadWriteProcess qw(process);
-    my $p = process( execute => "/path/to/bin" )->start;
-
-    $p->wait_stop->exit_status;
-
-Inspect the process exit status, it works for forks too, but it does the shifting magic,
-which is particularly useful when dealing with external processes.
-
 ## signal()
 
     use Mojo::IOLoop::ReadWriteProcess qw(process);
@@ -407,88 +425,6 @@ which is particularly useful when dealing with external processes.
     $p->signal(POSIX::SIGKILL);
 
 Send a signal to the process
-
-## stop()
-
-    use Mojo::IOLoop::ReadWriteProcess qw(process);
-    use POSIX;
-    my $p = process( execute => "/path/to/bin" )->start->stop;
-
-Stop the process. Unless you use `wait_stop()`, it will attempt to kill the process
-without waiting the process to finish. By defaults it send `SIGTERM` to the child.
-You can change that by defining the internal attribute `_default_kill_signal`.
-Note, if you want to be \*sure\* that the process gets killed, you can enable the
-`blocking_stop` attribute, that will attempt to send `SIGKILL` after `max_kill_attempts`
-is reached.
-
-## restart()
-
-    use Mojo::IOLoop::ReadWriteProcess qw(process);
-    my $p = process( execute => "/path/to/bin" )->restart;
-
-It restarts the process if stopped, or if already running, it stops it first.
-
-## is\_running()
-
-    use Mojo::IOLoop::ReadWriteProcess qw(process);
-    my $p = process( execute => "/path/to/bin" )->start;
-    $p->is_running;
-
-Boolean, it inspect if the process is currently running or not.
-
-# NAME
-
-Mojo::IOLoop::ReadWriteProcess::Pool - Pool of Mojo::IOLoop::ReadWriteProcess objects.
-
-# SYNOPSIS
-
-    my $n_proc = 20;
-    my $fired;
-
-    my $p = parallel sub { print "Hello world\n"; } => $n_proc;
-
-    # Subscribe to all "stop" events in the pool
-    $p->once(stop => sub { $fired++; });
-
-    # Start all processes belonging to the pool
-    $p->start();
-
-    # Receive the process output
-    $p->each(sub { my $p = shift; $p->getline(); });
-    $p->wait_stop;
-
-    # Get the last one! (it's a Mojo::Collection!)
-    $p->last()->stop();
-
-# METHODS
-
-[Mojo::IOLoop::ReadWriteProcess::Pool](https://metacpan.org/pod/Mojo::IOLoop::ReadWriteProcess::Pool) inherits all methods from [Mojo::Collection](https://metacpan.org/pod/Mojo::Collection) and implements
-the following new ones.
-Note: It proxies all the other methods of [Mojo::IOLoop::ReadWriteProcess](https://metacpan.org/pod/Mojo::IOLoop::ReadWriteProcess) for the whole process group.
-
-## get
-
-    use Mojo::IOLoop::ReadWriteProcess qw(parallel);
-    my $pool = parallel(sub { print "Hello" } => 5);
-    $pool->get(4);
-
-Get the element specified in the pool (starting from 0).
-
-## add
-
-    use Mojo::IOLoop::ReadWriteProcess qw(parallel);
-    my $pool = pool;
-    $pool->add(sub { print "Hello 2! " });
-
-Add the element specified in the pool.
-
-## remove
-
-    use Mojo::IOLoop::ReadWriteProcess qw(parallel);
-    my $pool = parallel(sub { print "Hello" } => 5);
-    $pool->remove(4);
-
-Remove the element specified in the pool.
 
 # LICENSE
 
