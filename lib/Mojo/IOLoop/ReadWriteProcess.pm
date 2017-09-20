@@ -224,9 +224,15 @@ sub _fork {
         : $output_err_pipe ? $output_err_pipe->writer()
         :                    undef;
       $stdin = $input_pipe->reader() if $input_pipe;
-      open STDERR, ">&", $stderr or !!$internal_err->write($!) or die $!;
-      open STDOUT, ">&", $stdout or !!$internal_err->write($!) or die $!;
-      open STDIN,  ">&", $stdin  or !!$internal_err->write($!) or die $!;
+      open STDERR, ">&", $stderr
+        or !!$internal_err->write($!)
+        or $self->_diag($!);
+      open STDOUT, ">&", $stdout
+        or !!$internal_err->write($!)
+        or $self->_diag($!);
+      open STDIN, ">&", $stdin
+        or !!$internal_err->write($!)
+        or $self->_diag($!);
 
       $self->read_stream($stdin);
       $self->error_stream($stderr);
@@ -261,8 +267,8 @@ sub _fork {
     : $output_err_pipe ? $output_err_pipe->reader()
     :                    undef);
   $self->write_stream($input_pipe->writer) if $input_pipe;
-  $self->channel_in($channel_in->writer)   if $input_pipe;
-  $self->channel_out($channel_out->reader) if $input_pipe;
+  $self->channel_in($channel_in->writer)   if $channel_in;
+  $self->channel_out($channel_out->reader) if $channel_out;
   eval { $self->$_->autoflush($self->autoflush) }
     for qw(read_stream error_stream write_stream channel_in channel_out);
 
