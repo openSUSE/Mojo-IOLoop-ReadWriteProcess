@@ -1,8 +1,9 @@
 package Mojo::IOLoop::ReadWriteProcess::Pool;
 our $VERSION = "0.04";
 use Mojo::Base 'Mojo::Collection';
+use constant MAXIMUM_PROCESSES => $ENV{MOJO_PROCESS_MAXIMUM_PROCESSES} // 100;
 
-my $maximum_processes = 100;
+my $maximum_processes = MAXIMUM_PROCESSES;
 
 sub get { my $s = shift; @{$s}[+shift()] }
 
@@ -107,6 +108,13 @@ Remove the element specified in the pool.
 
 Prevent from adding processes to the pool. If we reach C<maximum_processes> number
 of processes, C<add()> will refuse to add more to the pool.
+
+=head1 ENVIRONMENT
+
+You can set the MOJO_PROCESS_MAXIMUM_PROCESSES environment variable to specify the
+the maximum number of processes allowed in L<Mojo::IOLoop::ReadWriteProcess> instances.
+
+    MOJO_PROCESS_MAXIMUM_PROCESSES=10000
 
 =head1 LICENSE
 
