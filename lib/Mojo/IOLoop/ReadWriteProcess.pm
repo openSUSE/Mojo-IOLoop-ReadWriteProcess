@@ -504,7 +504,7 @@ Mojo::IOLoop::ReadWriteProcess - Execute external programs or internal code bloc
 
     # Methods can be chained, thus this is valid:
     use Mojo::IOLoop::ReadWriteProcess qw(process);
-    $output = process( sub { print "Hello\n" } )->start()->wait_stop->getline;
+    my $output = process( sub { print "Hello\n" } )->start()->wait_stop->getline;
 
     # Handles seamelessy also external processes:
     my $process = process(execute=> '/path/to/bin' )->args(qw(foo bar baz));
@@ -546,7 +546,7 @@ the following new ones.
 
  $process->on(process_error => sub {
    my ($e) = @_;
-   @errors = @{$e};
+   my @errors = @{$e};
  });
 
 Emitted when the process produce errors.
@@ -579,9 +579,9 @@ the following new ones.
 
     use Mojo::IOLoop::ReadWriteProcess;
     my $process = Mojo::IOLoop::ReadWriteProcess->new(execute => "/usr/bin/perl");
-    $pool->start();
-    $pool->on( stop => sub { print "Process: ".$p->pid." finished"; );
-    $pool->stop();
+    $process->start();
+    $process->on( stop => sub { print "Process: ".(+shift()->pid)." finished"; } );
+    $process->stop();
 
 C<execute> should contain the external program that you wish to run.
 
@@ -589,26 +589,26 @@ C<execute> should contain the external program that you wish to run.
 
     use Mojo::IOLoop::ReadWriteProcess;
     my $process = Mojo::IOLoop::ReadWriteProcess->new(code => sub { print "Hello" } );
-    $pool->start();
-    $pool->on( stop => sub { print "Process: ".$p->pid." finished"; );
-    $pool->stop();
+    $process->start();
+    $process->on( stop => sub { print "Process: ".(+shift()->pid)." finished"; } );
+    $process->stop();
 
 It represent the code you want to run in background.
 
 You do not need to specify C<code>, it is implied if no arguments is given.
 
     my $process = Mojo::IOLoop::ReadWriteProcess->new(sub { print "Hello" });
-    $pool->start();
-    $pool->on( stop => sub { print "Process: ".$p->pid." finished"; );
-    $pool->stop();
+    $process->start();
+    $process->on( stop => sub { print "Process: ".(+shift()->pid)." finished"; } );
+    $process->stop();
 
 =head2 args
 
     use Mojo::IOLoop::ReadWriteProcess;
     my $process = Mojo::IOLoop::ReadWriteProcess->new(code => sub { print "Hello ".shift() }, args => "User" );
-    $pool->start();
-    $pool->on( stop => sub { print "Process: ".$p->pid." finished"; );
-    $pool->stop();
+    $process->start();
+    $process->on( stop => sub { print "Process: ".(+shift()->pid)." finished"; } );
+    $process->stop();
 
     # The process will print "Hello User"
 
@@ -618,9 +618,9 @@ Array or arrayref of options to pass by to the external binary or the code block
 
     use Mojo::IOLoop::ReadWriteProcess;
     my $process = Mojo::IOLoop::ReadWriteProcess->new(code => sub { print "Hello" }, blocking_stop => 1 );
-    $pool->start();
-    $pool->on( stop => sub { print "Process: ".$p->pid." finished"; );
-    $pool->stop(); # Will wait indefinitely until the process is stopped
+    $process->start();
+    $process->on( stop => sub { print "Process: ".(+shift()->pid)." finished"; } );
+    $process->stop(); # Will wait indefinitely until the process is stopped
 
 Set it to 1 if you want to do blocking stop of the process.
 
@@ -628,9 +628,9 @@ Set it to 1 if you want to do blocking stop of the process.
 
     use Mojo::IOLoop::ReadWriteProcess;
     my $process = Mojo::IOLoop::ReadWriteProcess->new(code => sub { print "Hello" }, max_kill_attempts => 50 );
-    $pool->start();
-    $pool->on( stop => sub { print "Process: ".$p->pid." finished"; );
-    $pool->stop(); # It will attempt to send SIGTERM 50 times.
+    $process->start();
+    $process->on( stop => sub { print "Process: ".(+shift()->pid)." finished"; } );
+    $process->stop(); # It will attempt to send SIGTERM 50 times.
 
 Defaults to C<5>, is the number of attempts before bailing out.
 
@@ -686,7 +686,6 @@ Starts the process
 =head2 stop()
 
     use Mojo::IOLoop::ReadWriteProcess qw(process);
-    use POSIX;
     my $p = process( execute => "/path/to/bin" )->start->stop;
 
 Stop the process. Unless you use C<wait_stop()>, it will attempt to kill the process
@@ -738,7 +737,7 @@ Inspect the codeblock return.
 
 or even:
 
-    process(sub { print "Hello\n" })->on( stop => sub { print "Done!\n"; } )->start->wait_stop;
+    process(sub { print "Hello\n" })->start->wait_stop;
 
 Returns a L<Mojo::IOLoop::ReadWriteProcess> object that represent a process.
 
@@ -747,7 +746,9 @@ It accepts the same arguments as L<Mojo::IOLoop::ReadWriteProcess>.
 =head2 diag()
 
     use Mojo::IOLoop::ReadWriteProcess qw(process);
-    process(sub { print "Hello\n" })->on( stop => sub { shift->diag("Done!") } )->start->wait_stop;
+    my $p = process(sub { print "Hello\n" });
+    $p->on( stop => sub { shift->diag("Done!") } );
+    $p->start->wait_stop;
 
 Internal function to print information to STDERR if verbose attribute is set or either DEBUG mode enabled.
 You can use it if you wish to display information on the process status.
@@ -757,7 +758,7 @@ You can use it if you wish to display information on the process status.
     use Mojo::IOLoop::ReadWriteProcess qw(parallel);
     my $pool = parallel sub { print "Hello\n" } => 5;
     $pool->start();
-    $pool->on( stop => sub { print "Process: ".$p->pid." finished"; );
+    $pool->on( stop => sub { print "Process: ".(+shift()->pid)." finished"; } );
     $pool->stop();
 
 Returns a L<Mojo::IOLoop::ReadWriteProcess::Pool> object that represent a group of processes.
@@ -815,7 +816,7 @@ as attribute, it will be done automatically.
     use Mojo::IOLoop::ReadWriteProcess qw(process);
     my $p = process(sub { my $a = <STDIN>; print STDERR "Hello my name is $a\n"; } )->start;
     $p->write_stdin("Larry");
-    # process STDERR will contain: "Hello my name is Larry\n"
+    $p->read_stderr; # process STDERR will contain: "Hello my name is Larry\n"
 
 Write data to process STDIN.
 
@@ -823,6 +824,7 @@ Write data to process STDIN.
 
     use Mojo::IOLoop::ReadWriteProcess qw(process);
     my $p = process(sub {
+                          my $self = shift;
                           my $parent_output = $self->channel_out;
                           my $parent_input  = $self->channel_in;
 
@@ -833,7 +835,7 @@ Write data to process STDIN.
     $p->write_channel("PING");
     my $out = $p->read_channel;
     # $out is PONG
-    my $child_output = $self->channel_output;
+    my $child_output = $p->channel_out;
     while(defined(my $line = <$child_output>)) {
         print "Process is replying back with $line!\n";
         $p->write_channel("PING");
@@ -860,6 +862,7 @@ Gets a single line from process STDOUT.
 
     use Mojo::IOLoop::ReadWriteProcess qw(process);
     my $p = process(sub {
+                          my $self = shift;
                           my $parent_output = $self->channel_out;
                           my $parent_input  = $self->channel_in;
 
