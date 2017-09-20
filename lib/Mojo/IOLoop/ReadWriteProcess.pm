@@ -35,6 +35,7 @@ has autoflush             => 1;
 has error                 => sub { Mojo::Collection->new };
 has set_pipes             => 1;
 has verbose               => 1;
+has internal_pipes        => 1;
 has _deparse              => sub { B::Deparse->new }
   if DEBUG;
 
@@ -116,15 +117,16 @@ sub _fork {
     $channel_out = IO::Pipe->new()
       or $self->_new_err('Failed creating Channel output pipe');
   }
+  if ($self->internal_pipes) {
+    my $internal_err = IO::Pipe->new()
+      or $self->_new_err('Failed creating internal error pipe');
+    my $internal_return = IO::Pipe->new()
+      or $self->_new_err('Failed creating internal return pipe');
 
-  my $internal_err = IO::Pipe->new()
-    or $self->_new_err('Failed creating internal error pipe');
-  my $internal_return = IO::Pipe->new()
-    or $self->_new_err('Failed creating internal return pipe');
-
-  # Internal pipes to retrieve error/return
-  $self->_internal_err($internal_err);
-  $self->_internal_return($internal_return);
+    # Internal pipes to retrieve error/return
+    $self->_internal_err($internal_err);
+    $self->_internal_return($internal_return);
+  }
 
   # Defered collect of return status
   $self->once(
@@ -646,6 +648,11 @@ Defaults to C<1>, it indicates message verbosity.
 
 Defaults to C<1>, If enabled, additional pipes for process communication are automatically set up.
 
+
+=head2 internal_pipes
+
+Defaults to C<1>, If enabled, additional pipes for retreiving process return and errors are set up.
+Note: If you disable that, the only information provided by the process will be the exit_status.
 
 =head2 autoflush
 

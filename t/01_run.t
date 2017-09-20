@@ -350,10 +350,25 @@ subtest 'process code()' => sub {
   is $p->return_status, undef, 'process did not return nothing';
   is !!$p->exit_status, 1,
     'process have an exit_status';    # We now gather exit status on sigchld too
-
   is $p->errored, 1, 'Process died';
+
   like(${(@{$p->error})[0]}, qr/Fatal error/, 'right error');
   is $event_fired, 1, 'error event fired';
+
+  $p = Mojo::IOLoop::ReadWriteProcess->new(sub { return 42 },
+    internal_pipes => 0);
+  $p->start();
+  $p->wait_stop();
+  is $p->is_running,    0,     'process is not running';
+  is $p->return_status, undef, 'process did not return nothing';
+
+  $p = Mojo::IOLoop::ReadWriteProcess->new(sub { die "Bah" },
+    internal_pipes => 0);
+  $p->start();
+  $p->wait_stop();
+  is $p->is_running, 0, 'process is not running';
+  is $p->errored,    0, 'process did not errored, we dont catch errors anymore';
+  is !!$p->exit_status, 1, 'Exit status is there';
 
   $p = Mojo::IOLoop::ReadWriteProcess->new(
     separate_err => 0,
