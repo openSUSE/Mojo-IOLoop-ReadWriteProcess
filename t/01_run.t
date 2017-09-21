@@ -355,9 +355,7 @@ subtest 'process code()' => sub {
   $p->wait_stop();
   is $p->is_running,    0,     'process is not running';
   is $p->return_status, undef, 'process did not return nothing';
-  is !!$p->exit_status, 1,
-    'process have an exit_status';    # We now gather exit status on sigchld too
-  is $p->errored, 1, 'Process died';
+  is $p->errored,       1,     'Process died';
 
   like(${(@{$p->error})[0]}, qr/Fatal error/, 'right error');
   is $event_fired, 1, 'error event fired';
