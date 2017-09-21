@@ -58,11 +58,12 @@ subtest batch => sub {
   is $c->size(), $n_proc;
 
   $c->once(stop => sub { $fired++; });
-  $c->start();
+  my @procs = $c->start();
   $c->each(sub { my $p = shift; $p->wait; is $p->getline(), "Hello world\n"; });
   $c->wait_stop;
 
   is $fired, $n_proc;
+  is scalar(@procs), $n_proc;
 
   $c->add(
     code         => sub { print "Hello world 3\n" },
@@ -123,7 +124,8 @@ subtest maximum_processes => sub {
   $p->add(sub { print "Wof\n" });
   $p->add(sub { print "Wof2\n" });
   is $p->get(1), undef;
-  is $p->size, 1;
+  is $p->size,              1;
+  is $p->maximum_processes, 1;
 };
 
 subtest stress_test => sub {
