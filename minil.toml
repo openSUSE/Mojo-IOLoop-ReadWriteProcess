@@ -1,4 +1,4 @@
 name = "Mojo-IOLoop-ReadWriteProcess"
-badges = ["travis"]
+badges = ["travis", "codecov"]
 module_maker="ModuleBuildTiny"
 
