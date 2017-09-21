@@ -187,9 +187,8 @@ subtest 'process execute()' => sub {
   is $p2->getline, undef, "pipes are correctly disabled";
   is $p2->getline, undef, "pipes are correctly disabled";
   $p2->stop();
-  is $p2->_status, -1,
+  is !!$p2->_status, 1,
     'take exit status even with set_pipes = 0 (we killed it)';
-
 
   $p = Mojo::IOLoop::ReadWriteProcess->new(
     verbose           => 1,
@@ -389,6 +388,15 @@ subtest 'process code()' => sub {
   is $p->getline, undef, 'no output from pipes expected';
   $p->wait_stop();
   is $p->return_status, 256, "grab exit_status even if no pipes are set";
+
+  $p = Mojo::IOLoop::ReadWriteProcess->new(
+    separate_err => 0,
+    set_pipes    => 1,
+    code         => sub {
+      exit 100;
+    })->start();
+  $p->wait_stop();
+  is $p->exit_status, 100, "grab exit_status even if no pipes are set";
 
   $p = Mojo::IOLoop::ReadWriteProcess->new(
     separate_err => 0,
