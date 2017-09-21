@@ -15,8 +15,7 @@ sub add {
 sub remove { my $s = shift; delete @{$s}[+shift()] }
 
 sub maximum_processes {
-  my (undef, $max) = @_;
-  $maximum_processes = $max if $max;
+  $maximum_processes = pop() if $_[1];
   $maximum_processes;
 }
 
