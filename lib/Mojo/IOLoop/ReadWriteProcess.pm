@@ -189,6 +189,15 @@ sub _fork {
 
     my $return;
     my $internal_err;
+
+    if ($self->_internal_err) {
+      $internal_err
+        = $self->_internal_err->isa("IO::Pipe::End") ?
+        $self->_internal_err
+        : $self->_internal_err->writer();
+      $internal_err->autoflush(1);
+    }
+
     if ($self->_internal_return) {
       $return
         = $self->_internal_return->isa("IO::Pipe::End")
@@ -198,18 +207,7 @@ sub _fork {
       $return->autoflush(1);
     }
     else {
-      $self->_new_err("Can't setup return status pipe");
-    }
-
-    if ($self->_internal_err) {
-      $internal_err
-        = $self->_internal_err->isa("IO::Pipe::End") ?
-        $self->_internal_err
-        : $self->_internal_err->writer();
-      $internal_err->autoflush(1);
-    }
-    else {
-      $self->_new_err("Can't setup error pipe");
+      eval { $internal_err->write("Can't setup return status pipe") };
     }
 
     # Set pipes to redirect STDIN/STDOUT/STDERR + channels if desired
