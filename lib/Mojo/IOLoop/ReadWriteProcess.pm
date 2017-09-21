@@ -300,7 +300,7 @@ sub wait {
 
 sub wait_stop   { shift->wait->stop }
 sub errored     { !!@{shift->error} ? 1 : 0 }
-sub exit_status { $_[0]->_status ? shift->_status >> 8 : undef }
+sub exit_status { defined $_[0]->_status ? shift->_status >> 8 : undef }
 sub restart     { $_[0]->is_running ? $_[0]->stop->start : $_[0]->start; }
 sub is_running  { $_[0]->process_id ? kill 0 => $_[0]->process_id : 0; }
 
