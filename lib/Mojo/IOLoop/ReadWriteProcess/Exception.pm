@@ -1,5 +1,4 @@
 package Mojo::IOLoop::ReadWriteProcess::Exception;
-our $VERSION = "0.04";
 use Mojo::Base -base;
 
 sub new {

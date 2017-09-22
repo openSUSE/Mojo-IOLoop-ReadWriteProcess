@@ -1,5 +1,4 @@
 package Mojo::IOLoop::ReadWriteProcess::Pool;
-our $VERSION = "0.04";
 use Mojo::Base 'Mojo::Collection';
 use constant MAXIMUM_PROCESSES => $ENV{MOJO_PROCESS_MAXIMUM_PROCESSES} // 100;
 
