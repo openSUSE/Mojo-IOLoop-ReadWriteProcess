@@ -17,6 +17,14 @@ subtest _new_err => sub {
   ok !$p->error->last->to_string;
 };
 
+subtest write_pidfile => sub {
+  use Mojo::File 'tempfile';
+  my $pidfile = tempfile;
+  my $p = process(code => sub { exit 0 }, pidfile => $pidfile);
+  $p->write_pidfile;
+  ok !$pidfile->slurp;
+};
+
 subtest _fork => sub {
   use Mojo::Util 'monkey_patch';
   monkey_patch 'IO::Pipe', new => sub { undef };
