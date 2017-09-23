@@ -345,11 +345,10 @@ sub write_channel {
 # Get all lines from the current process output stream
 sub read_all_stdout { _getlines(shift->read_stream) }
 
-sub read_all_channel {
-  _getlines(shift->channel_out);
-}    # Get all lines from the process channel
-sub read_stdout  { _getline(shift->read_stream) }
-sub read_channel { _getline(shift->channel_out) }
+# Get all lines from the process channel
+sub read_all_channel { _getlines(shift->channel_out); }
+sub read_stdout      { _getline(shift->read_stream) }
+sub read_channel     { _getline(shift->channel_out) }
 
 sub read_all_stderr {
   return $_[0]->getline unless $_[0]->separate_err;
