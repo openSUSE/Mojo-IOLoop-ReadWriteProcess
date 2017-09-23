@@ -4,14 +4,13 @@ use constant MAXIMUM_PROCESSES => $ENV{MOJO_PROCESS_MAXIMUM_PROCESSES} // 100;
 
 my $maximum_processes = MAXIMUM_PROCESSES;
 
-sub get { my $s = shift; @{$s}[+shift()] }
+sub get    { @{$_[0]}[$_[1]] }
+sub remove { delete @{$_[0]}[$_[1]] }
 
 sub add {
-  my $c = shift;
-  push @{$c}, Mojo::IOLoop::ReadWriteProcess->new(@_)
-    if $c->size < $maximum_processes;
+  return unless $_[0]->size < $maximum_processes;
+  push @{+shift()}, Mojo::IOLoop::ReadWriteProcess->new(@_);
 }
-sub remove { my $s = shift; delete @{$s}[+shift()] }
 
 sub maximum_processes {
   $maximum_processes = pop() if $_[1];
@@ -23,10 +22,7 @@ sub _cmd {
   my $f    = pop;
   my @args = @_;
   my @r;
-  $c->each(
-    sub {
-      push(@r, +shift()->$f(@args));
-    });
+  $c->each(sub { push(@r, +shift()->$f(@args)) });
   wantarray ? @r : $c;
 }
 
@@ -35,7 +31,7 @@ sub AUTOLOAD {
   my $fn = $AUTOLOAD;
   $fn =~ s/.*:://;
   return if $fn eq "DESTROY";
-  +shift()->_cmd(@_, $fn);
+  return eval { +shift()->_cmd(@_, $fn) };
 }
 
 1;
