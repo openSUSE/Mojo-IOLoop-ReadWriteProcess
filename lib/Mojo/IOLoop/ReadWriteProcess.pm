@@ -71,7 +71,7 @@ sub _open {
   $self->_diag('Execute: ' . (join ', ', map { "'$_'" } @args)) if DEBUG;
   $SIG{CHLD} = sub {
     local ($!, $?);
-    $self->_shutdown while ((my $pid = waitpid(-1, WNOHANG)) > 0);
+    $self->emit('collect_status') while ((my $pid = waitpid(-1, WNOHANG)) > 0);
   };
 
   my ($wtr, $rdr, $err);
@@ -257,7 +257,7 @@ sub _fork {
 
   $SIG{CHLD} = sub {
     local ($!, $?);
-    $self->_shutdown while ((my $pid = waitpid(-1, WNOHANG)) > 0);
+    $self->emit('collect_status') while ((my $pid = waitpid(-1, WNOHANG)) > 0);
   };
 
   return $self unless $self->set_pipes();
@@ -439,7 +439,7 @@ sub stop {
 
 sub _shutdown {
   my $self = shift;
-  $self->emit('collect_status');
+  $self->emit('collect_status') if !defined $self->_status;
   $self->emit('process_error', $self->error)
     if $self->error && $self->error->size > 0;
   $self->emit('stop');
