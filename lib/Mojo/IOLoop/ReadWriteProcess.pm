@@ -6,8 +6,9 @@ use Mojo::Base 'Mojo::EventEmitter';
 use Mojo::File 'path';
 use Mojo::IOLoop::ReadWriteProcess::Exception;
 use Mojo::IOLoop::ReadWriteProcess::Pool;
+use Mojo::IOLoop::ReadWriteProcess::Queue;
 
-our @EXPORT_OK = qw(parallel batch process pool);
+our @EXPORT_OK = qw(parallel batch process pool queue);
 use Exporter 'import';
 use B::Deparse;
 use Carp 'confess';
@@ -50,6 +51,7 @@ sub new {
 
 sub process { Mojo::IOLoop::ReadWriteProcess->new(@_) }
 sub batch   { Mojo::IOLoop::ReadWriteProcess::Pool->new(@_) }
+sub queue   { Mojo::IOLoop::ReadWriteProcess::Queue->new(@_) }
 
 sub parallel {
   my $c = batch();
