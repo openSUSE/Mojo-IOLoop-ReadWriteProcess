@@ -82,8 +82,8 @@ sub _open {
   $self->process_id($pid);
 
   # Defered collect of return status and removal of pidfile
-  $self->once(collect_status =>
-      sub { $self->_status($?); unlink($self->pidfile) if $self->pidfile; });
+  $self->once(
+    collect_status => sub { $self->_status($?); $self->_clean_pidfile; });
 
   return $self unless $self->set_pipes();
 
@@ -95,6 +95,8 @@ sub _open {
 
   return $self;
 }
+
+sub _clean_pidfile { unlink(shift->pidfile) if $_[0]->pidfile }
 
 # Handle forking of code
 sub _fork {
@@ -174,7 +176,7 @@ sub _fork {
           if DEBUG;
       }
 
-      unlink($self->pidfile) if $self->pidfile;
+      $self->_clean_pidfile;
     });
 
   if (DEBUG) {
@@ -440,6 +442,7 @@ sub stop {
 sub _shutdown {
   my $self = shift;
   $self->emit('collect_status') if !defined $self->_status;
+  $self->_clean_pidfile;
   $self->emit('process_error', $self->error)
     if $self->error && $self->error->size > 0;
   $self->emit('stop');
