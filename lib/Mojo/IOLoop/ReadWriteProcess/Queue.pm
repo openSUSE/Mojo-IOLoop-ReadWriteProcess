@@ -1,42 +1,64 @@
-package Mojo::IOLoop::ReadWriteProcess::Pool;
-use Mojo::Base 'Mojo::Collection';
-use constant MAXIMUM_PROCESSES => $ENV{MOJO_PROCESS_MAXIMUM_PROCESSES} // 100;
+package Mojo::IOLoop::ReadWriteProcess::Queue;
+use Mojo::Base -base;
 use Scalar::Util qw(blessed);
+use Mojo::IOLoop::ReadWriteProcess::Pool;
+use Mojo::IOLoop::ReadWriteProcess;
+has queue => sub { Mojo::IOLoop::ReadWriteProcess::Pool->new() };
+has pool  => sub { Mojo::IOLoop::ReadWriteProcess::Pool->new() };
 
-my $maximum_processes = MAXIMUM_PROCESSES;
+has [qw(auto_start auto_start_add)] => 0;
 
-sub get    { @{$_[0]}[$_[1]] }
-sub remove { delete @{$_[0]}[$_[1]] }
+sub _dequeue {
+  my $self    = shift;
+  my $process = shift;
+
+  $self->pool->remove($process);    # remove from $self Collection
+
+# pick first from queue and remove it get(0), remove(0)
+
+
+  shift @{$self->queue}
+    if ($self->queue->first && $self->add($self->queue->first));
+
+  $self->pool->last->start if $self->auto_start;
+
+}
+
+sub exhausted {
+  shift->pool->size == 0;
+}
+
+sub consume {
+  my $p = shift;
+  until ($p->exhausted) {
+    $p->start;
+    $p->wait_stop;
+  }
+}
 
 sub add {
-  return undef unless $_[0]->size < $maximum_processes;
   my $self = shift;
-  push @{$self},
-    blessed $_[0] ? $_[0] : Mojo::IOLoop::ReadWriteProcess->new(@_);
-  $self->last;
-}
 
-sub maximum_processes {
-  $maximum_processes = pop() if $_[1];
-  $maximum_processes;
-}
+  return $self->queue->add(@_) unless $self->pool->add(@_);
+  my $i = $self->pool->size - 1;
+  $self->pool->last->once(stop => sub { $self->_dequeue($i) });
 
-sub _cmd {
-  my $c    = shift;
-  my $f    = pop;
-  my @args = @_;
-  my @r;
-  $c->each(sub { push(@r, +shift()->$f(@args)) });
-  wantarray ? @r : $c;
+  $self->pool->last->start if $self->auto_start_add == 1;
+  $self->pool->last;
 }
-
 
 sub AUTOLOAD {
   our $AUTOLOAD;
   my $fn = $AUTOLOAD;
   $fn =~ s/.*:://;
   return if $fn eq "DESTROY";
-  return eval { shift->_cmd(@_, $fn) };
+  my $self = shift;
+  return (
+    eval { $self->pool->Mojo::IOLoop::ReadWriteProcess::Pool::_cmd(@_, $fn) },
+    (grep(/once|on|emit/, $fn))
+    ?
+      eval { $self->queue->Mojo::IOLoop::ReadWriteProcess::Pool::_cmd(@_, $fn) }
+    : ());
 }
 
 1;
