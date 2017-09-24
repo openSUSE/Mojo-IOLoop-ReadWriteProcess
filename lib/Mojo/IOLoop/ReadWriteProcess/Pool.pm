@@ -3,13 +3,19 @@ use Mojo::Base 'Mojo::Collection';
 use constant MAXIMUM_PROCESSES => $ENV{MOJO_PROCESS_MAXIMUM_PROCESSES} // 100;
 use Scalar::Util qw(blessed);
 
-my $maximum_processes = MAXIMUM_PROCESSES;
+my %max_proc;
+
+sub new {
+  my $s = shift->SUPER::new(@_);
+  $max_proc{$s} = MAXIMUM_PROCESSES;
+  $s;
+}
 
 sub get    { @{$_[0]}[$_[1]] }
 sub remove { delete @{$_[0]}[$_[1]] }
 
 sub add {
-  return undef unless $_[0]->size < $maximum_processes;
+  return undef unless $_[0]->size < $max_proc{$_[0]};
   my $self = shift;
   push @{$self},
     blessed $_[0] ? $_[0] : Mojo::IOLoop::ReadWriteProcess->new(@_);
@@ -17,8 +23,8 @@ sub add {
 }
 
 sub maximum_processes {
-  $maximum_processes = pop() if $_[1];
-  $maximum_processes;
+  $max_proc{$_[0]} = pop() if $_[1];
+  $max_proc{$_[0]};
 }
 
 sub _cmd {
