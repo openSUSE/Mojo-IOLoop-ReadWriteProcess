@@ -12,16 +12,11 @@ sub _dequeue {
   my $self    = shift;
   my $process = shift;
 
-  $self->pool->remove($process);    # remove from $self Collection
-
-# pick first from queue and remove it get(0), remove(0)
-
-
+  $self->pool->remove($process);
   shift @{$self->queue}
     if ($self->queue->first && $self->add($self->queue->first));
 
   $self->pool->last->start if $self->auto_start;
-
 }
 
 sub exhausted {
@@ -38,11 +33,10 @@ sub consume {
 
 sub add {
   my $self = shift;
-
   return $self->queue->add(@_) unless $self->pool->add(@_);
+
   my $i = $self->pool->size - 1;
   $self->pool->last->once(stop => sub { $self->_dequeue($i) });
-
   $self->pool->last->start if $self->auto_start_add == 1;
   $self->pool->last;
 }
@@ -67,7 +61,7 @@ sub AUTOLOAD {
 
 =head1 NAME
 
-Mojo::IOLoop::ReadWriteProcess::Pool - Pool of Mojo::IOLoop::ReadWriteProcess objects.
+Mojo::IOLoop::ReadWriteProcess::Queue - Queue for Mojo::IOLoop::ReadWriteProcess::Pool objects.
 
 =head1 SYNOPSIS
 
