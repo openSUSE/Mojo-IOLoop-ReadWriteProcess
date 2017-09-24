@@ -36,7 +36,6 @@ sub _cmd {
   wantarray ? @r : $c;
 }
 
-
 sub AUTOLOAD {
   our $AUTOLOAD;
   my $fn = $AUTOLOAD;

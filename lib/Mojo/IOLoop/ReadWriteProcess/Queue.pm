@@ -6,7 +6,8 @@ use Mojo::IOLoop::ReadWriteProcess;
 has queue => sub { Mojo::IOLoop::ReadWriteProcess::Pool->new() };
 has pool  => sub { Mojo::IOLoop::ReadWriteProcess::Pool->new() };
 
-has [qw(auto_start auto_start_add)] => 0;
+has auto_start_add => 0;
+has auto_start     => 1;
 
 sub _dequeue {
   my $self    = shift;
