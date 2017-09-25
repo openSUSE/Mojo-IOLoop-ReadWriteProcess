@@ -2,6 +2,13 @@ Revision history for Perl extension Mojo-IOLoop-ReadWriteProcess
 
 {{$NEXT}}
 
+0.06 2017-09-25T12:47:15Z
+    - Add Mojo::IOLoop::ReadWriteProcess::Queue
+    - Mojo::IOLoop::ReadWriteProcess now can export queue()
+    - Add tests
+    - Make maximum_processes to be set also per-pool
+    - Cleanup pidfile on shutdown and on collect_status
+
 0.05 2017-09-22T07:51:33Z
     - Enhance testsuite
     - If we fail to setup process return pipe, try to send an error message (best-effort)
