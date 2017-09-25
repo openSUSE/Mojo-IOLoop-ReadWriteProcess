@@ -60,7 +60,7 @@ sub AUTOLOAD {
 
 =head1 NAME
 
-Mojo::IOLoop::ReadWriteProcess::Queue - Queue for Mojo::IOLoop::ReadWriteProcess::Pool objects.
+Mojo::IOLoop::ReadWriteProcess::Queue - Queue for Mojo::IOLoop::ReadWriteProcess objects.
 
 =head1 SYNOPSIS
 
@@ -79,6 +79,14 @@ Mojo::IOLoop::ReadWriteProcess::Queue - Queue for Mojo::IOLoop::ReadWriteProcess
     $q->once(stop => sub { $fired++; });
 
     # Consume the queue
+    $q->consume();
+
+    # Set your own running pool
+    $q->pool(parallel sub { return 42 } => 5);
+
+    # Set your own queue
+    $q->queue(parallel sub { return 42 } => 20);
+
     $q->consume();
 
 =head1 METHODS

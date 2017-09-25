@@ -1,6 +1,6 @@
 package Mojo::IOLoop::ReadWriteProcess;
 
-our $VERSION = "0.05";
+our $VERSION = "0.06";
 
 use Mojo::Base 'Mojo::EventEmitter';
 use Mojo::File 'path';
@@ -731,20 +731,6 @@ call C<_status()>.
 
 Inspect the codeblock return.
 
-=head2 process()
-
-    use Mojo::IOLoop::ReadWriteProcess qw(process);
-    my $p = process sub { print "Hello\n" };
-    $p->start()->wait_stop;
-
-or even:
-
-    process(sub { print "Hello\n" })->start->wait_stop;
-
-Returns a L<Mojo::IOLoop::ReadWriteProcess> object that represent a process.
-
-It accepts the same arguments as L<Mojo::IOLoop::ReadWriteProcess>.
-
 =head2 diag()
 
     use Mojo::IOLoop::ReadWriteProcess qw(process);
@@ -754,28 +740,6 @@ It accepts the same arguments as L<Mojo::IOLoop::ReadWriteProcess>.
 
 Internal function to print information to STDERR if verbose attribute is set or either DEBUG mode enabled.
 You can use it if you wish to display information on the process status.
-
-=head2 parallel()
-
-    use Mojo::IOLoop::ReadWriteProcess qw(parallel);
-    my $pool = parallel sub { print "Hello\n" } => 5;
-    $pool->start();
-    $pool->on( stop => sub { print "Process: ".(+shift()->pid)." finished"; } );
-    $pool->stop();
-
-Returns a L<Mojo::IOLoop::ReadWriteProcess::Pool> object that represent a group of processes.
-
-It accepts the same arguments as L<Mojo::IOLoop::ReadWriteProcess>, and the last one represent the number of processes to generate.
-
-=head2 batch()
-
-    use Mojo::IOLoop::ReadWriteProcess qw(batch);
-    my $pool = batch;
-    $pool->add(sub { print "Hello\n" });
-    $pool->on(stop => sub { shift->_diag("Done!") })->start->wait_stop;
-
-Returns a L<Mojo::IOLoop::ReadWriteProcess::Pool> object generated from supplied arguments.
-It accepts as input the same parameter of L<Mojo::IOLoop::ReadWriteProcess::Pool> constructor ( see parallel() ).
 
 =head2 wait()
 
@@ -923,6 +887,53 @@ Gets all the STDERR output of the process.
     $p->signal(POSIX::SIGKILL);
 
 Send a signal to the process
+
+=head1 EXPORTS
+
+=head2 parallel()
+
+    use Mojo::IOLoop::ReadWriteProcess qw(parallel);
+    my $pool = parallel sub { print "Hello\n" } => 5;
+    $pool->start();
+    $pool->on( stop => sub { print "Process: ".(+shift()->pid)." finished"; } );
+    $pool->stop();
+
+Returns a L<Mojo::IOLoop::ReadWriteProcess::Pool> object that represent a group of processes.
+
+It accepts the same arguments as L<Mojo::IOLoop::ReadWriteProcess>, and the last one represent the number of processes to generate.
+
+=head2 batch()
+
+    use Mojo::IOLoop::ReadWriteProcess qw(batch);
+    my $pool = batch;
+    $pool->add(sub { print "Hello\n" });
+    $pool->on(stop => sub { shift->_diag("Done!") })->start->wait_stop;
+
+Returns a L<Mojo::IOLoop::ReadWriteProcess::Pool> object generated from supplied arguments.
+It accepts as input the same parameter of L<Mojo::IOLoop::ReadWriteProcess::Pool> constructor ( see parallel() ).
+
+=head2 process()
+
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+    my $p = process sub { print "Hello\n" };
+    $p->start()->wait_stop;
+
+or even:
+
+    process(sub { print "Hello\n" })->start->wait_stop;
+
+Returns a L<Mojo::IOLoop::ReadWriteProcess> object that represent a process.
+
+It accepts the same arguments as L<Mojo::IOLoop::ReadWriteProcess>.
+
+=head2 queue()
+
+    use Mojo::IOLoop::ReadWriteProcess qw(queue);
+    my $q = queue;
+    $q->add(sub { return 42 } );
+    $q->consume;
+
+Returns a L<Mojo::IOLoop::ReadWriteProcess::Queue> object that represent a queue.
 
 =head1 DEBUGGING
 
