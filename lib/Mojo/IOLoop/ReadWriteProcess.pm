@@ -65,6 +65,13 @@ sub _diag {
   print STDERR ">> ${caller}(): @messages\n" if ($self->verbose || DEBUG);
 }
 
+sub _open_collect_status {
+  my $self = shift;
+  return unless $self;
+  $self->_status($?);
+  $self->_clean_pidfile;
+}
+
 # Use open3 to launch external program.
 sub _open {
   my ($self, @args) = @_;
@@ -82,8 +89,7 @@ sub _open {
   $self->process_id($pid);
 
   # Defered collect of return status and removal of pidfile
-  $self->once(
-    collect_status => sub { $self->_status($?); $self->_clean_pidfile; });
+  $self->once(collect_status => \&_open_collect_status);
 
   return $self unless $self->set_pipes();
 
@@ -97,6 +103,48 @@ sub _open {
 }
 
 sub _clean_pidfile { unlink(shift->pidfile) if $_[0]->pidfile }
+
+sub _fork_collect_status {
+  my $self = shift;
+  return unless $self;
+  my $return_reader;
+  my $internal_err_reader;
+  my @result_return;
+  my @result_error;
+
+  $self->_status($?);
+
+  if ($self->_internal_return) {
+    $return_reader
+      = $self->_internal_return->isa("IO::Pipe::End") ?
+      $self->_internal_return
+      : $self->_internal_return->reader();
+    $self->_new_err('Cannot read from return code pipe') && return
+      unless IO::Select->new($return_reader)->can_read(10);
+    @result_return = $return_reader->getlines();
+    $self->return_status(@result_return) if @result_return;
+
+    $self->_diag("Forked code Process Returns: " . join("\n", @result_return))
+      if DEBUG;
+  }
+  if ($self->_internal_err) {
+    $internal_err_reader
+      = $self->_internal_err->isa("IO::Pipe::End") ?
+      $self->_internal_err
+      : $self->_internal_err->reader();
+    $self->_new_err('Cannot read from errors code pipe') && return
+      unless IO::Select->new($internal_err_reader)->can_read(10);
+    @result_error = $internal_err_reader->getlines();
+    push(
+      @{$self->error},
+      map { Mojo::IOLoop::ReadWriteProcess::Exception->new($_) } @result_error
+    ) if @result_error;
+    $self->_diag("Forked code Process Errors: " . join("\n", @result_error))
+      if DEBUG;
+  }
+
+  $self->_clean_pidfile;
+}
 
 # Handle forking of code
 sub _fork {
@@ -133,51 +181,7 @@ sub _fork {
   }
 
   # Defered collect of return status
-  $self->once(
-    collect_status => sub {
-      my $self = shift;
-      $self or return;
-      my $return_reader;
-      my $internal_err_reader;
-      my @result_return;
-      my @result_error;
-
-      $self->_status($?) if defined $?;
-
-      if ($self->_internal_return) {
-        $return_reader
-          = $self->_internal_return->isa("IO::Pipe::End")
-          ?
-          $self->_internal_return
-          : $self->_internal_return->reader();
-        $self->_new_err('Cannot read from return code pipe') && return
-          unless IO::Select->new($return_reader)->can_read(10);
-        @result_return = $return_reader->getlines();
-        $self->return_status(@result_return) if @result_return;
-
-        $self->_diag(
-          "Forked code Process Returns: " . join("\n", @result_return))
-          if DEBUG;
-      }
-      if ($self->_internal_err) {
-        $internal_err_reader
-          = $self->_internal_err->isa("IO::Pipe::End") ?
-          $self->_internal_err
-          : $self->_internal_err->reader();
-        $self->_new_err('Cannot read from errors code pipe') && return
-          unless IO::Select->new($internal_err_reader)->can_read(10);
-        @result_error = $internal_err_reader->getlines();
-        push(
-          @{$self->error},
-          map { Mojo::IOLoop::ReadWriteProcess::Exception->new($_) }
-            @result_error
-        ) if @result_error;
-        $self->_diag("Forked code Process Errors: " . join("\n", @result_error))
-          if DEBUG;
-      }
-
-      $self->_clean_pidfile;
-    });
+  $self->once(collect_status => \&_fork_collect_status);
 
   if (DEBUG) {
     my $code_str = $self->_deparse->coderef2text($code);
