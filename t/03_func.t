@@ -7,7 +7,7 @@ use POSIX;
 use FindBin;
 use Mojo::File qw(tempfile path);
 use lib ("$FindBin::Bin/lib", "../lib", "lib");
-use Mojo::IOLoop::ReadWriteProcess qw(process);
+use Mojo::IOLoop::ReadWriteProcess qw(process queue parallel);
 
 subtest _new_err => sub {
   my $p = process();
@@ -45,6 +45,38 @@ subtest _fork => sub {
     or diag explain @{$p->error}[5];
   like @{$p->error}[6]->to_string, qr/Failed creating internal return pipe/
     or diag explain @{$p->error}[6];
+};
+
+subtest DESTROY => sub {
+  my $q = queue();
+  $Mojo::IOLoop::ReadWriteProcess::Queue::AUTOLOAD
+    = "Mojo::IOLoop::ReadWriteProcess::Queue::DESTROY";
+  $q->pool(parallel(sub { return 1 } => 30));
+  is $q->AUTOLOAD(), undef;
+};
+
+subtest open => sub {
+  sub Mojo::IOLoop::ReadWriteProcess::open3 { return undef }
+
+  my $p = process();
+  {
+
+    eval { $p->_open("/tmp") };
+  };
+
+  like $@, qr/Cannot create pipe:/ or diag explain $@;
+};
+
+subtest _fork_collect_status => sub {
+  use IO::Pipe;
+
+  is Mojo::IOLoop::ReadWriteProcess::_fork_collect_status, undef,
+    "Protect when self is already garbage-collected";
+  my $p   = process();
+  my $end = IO::Pipe::End->new;
+  $p->_internal_err($end);
+  $p->_fork_collect_status();
+  is $p->error->first->to_string, 'Cannot read from errors code pipe';
 };
 
 done_testing;
