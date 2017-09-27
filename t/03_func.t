@@ -26,6 +26,7 @@ subtest write_pidfile => sub {
 };
 
 subtest _fork => sub {
+  plan skip_all => "Test is not possible on Windows" if $^O eq "MSWin32";
   use Mojo::Util 'monkey_patch';
   monkey_patch 'IO::Pipe', new => sub { undef };
   my $p = process(sub { exit 0 })->start->wait_stop;
