@@ -49,7 +49,7 @@ sub new {
   return shift->SUPER::new(@_);
 }
 
-sub process { Mojo::IOLoop::ReadWriteProcess->new(@_) }
+sub process { __PACKAGE__->new(@_) }
 sub batch   { Mojo::IOLoop::ReadWriteProcess::Pool->new(@_) }
 sub queue   { Mojo::IOLoop::ReadWriteProcess::Queue->new(@_) }
 
