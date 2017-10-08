@@ -4,6 +4,7 @@ our $VERSION = '0.08';
 
 use Mojo::Base 'Mojo::EventEmitter';
 use Mojo::File 'path';
+use Mojo::Util qw(b64_decode b64_encode);
 use Mojo::IOLoop::ReadWriteProcess::Exception;
 use Mojo::IOLoop::ReadWriteProcess::Pool;
 use Mojo::IOLoop::ReadWriteProcess::Queue;
@@ -18,7 +19,7 @@ use IO::Select;
 use IPC::Open3;
 use POSIX ":sys_wait_h";
 use Symbol 'gensym';
-
+use Storable;
 use constant DEBUG => $ENV{MOJO_PROCESS_DEBUG};
 
 has [
@@ -37,9 +38,11 @@ has error                 => sub { Mojo::Collection->new };
 has set_pipes             => 1;
 has verbose               => 1;
 has internal_pipes        => 1;
+has serialize             => 0;
 has _deparse              => sub { B::Deparse->new }
   if DEBUG;
-
+has _deserialize => sub { \&Storable::thaw };
+has _serialize   => sub { \&Storable::freeze };
 has _default_kill_signal => POSIX::SIGTERM;
 
 # Override new() just to support sugar syntax
@@ -109,7 +112,7 @@ sub _fork_collect_status {
   return unless $self;
   my $return_reader;
   my $internal_err_reader;
-  my @result_return;
+  my $rt;
   my @result_error;
 
   $self->_status($?);
@@ -121,11 +124,12 @@ sub _fork_collect_status {
       : $self->_internal_return->reader();
     $self->_new_err('Cannot read from return code pipe') && return
       unless IO::Select->new($return_reader)->can_read(10);
-    @result_return = $return_reader->getlines();
-    $self->return_status(@result_return) if @result_return;
-
-    $self->_diag("Forked code Process Returns: " . join("\n", @result_return))
-      if DEBUG;
+    $rt = $return_reader->getline();
+    $self->_diag("Forked code Process Returns: " . $rt) if DEBUG;
+    $self->return_status($self->serialize ?
+        eval { $self->_deserialize->(b64_decode($rt)) }
+      : $rt ? $rt
+      :       ());
   }
   if ($self->_internal_err) {
     $internal_err_reader
@@ -251,11 +255,14 @@ sub _fork {
     }
     $! = 0;
     my $rt;
-    eval { $rt = $code->($self, @args); };
+    eval { $rt = [$code->($self, @args)]; };
     if ($internal_err) {
       $internal_err->write($@) if $@;
       $internal_err->write($!) if !$@ && $!;
     }
+    $rt = @$rt[0] if scalar @$rt == 1 && !$self->serialize;
+    $rt = b64_encode(eval { $self->_serialize->($rt) })
+      if $self->serialize && $return;
     $return->write($rt) if $return;
     $self->_exit($@ // $!);
   }
