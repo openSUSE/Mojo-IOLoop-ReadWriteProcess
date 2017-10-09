@@ -1,6 +1,6 @@
 package Mojo::IOLoop::ReadWriteProcess;
 
-our $VERSION = '0.08';
+our $VERSION = '0.09';
 
 use Mojo::Base 'Mojo::EventEmitter';
 use Mojo::File 'path';
@@ -649,6 +649,10 @@ Defaults to C<5>, is the number of attempts before bailing out.
 
 It can be used with blocking_stop, so if the number of attempts are exhausted,
 a SIGKILL and waitpid will be tried at the end.
+
+=head2 serialize
+
+Defaults to C<0>, If enabled data returned from forked process will be serialized with Storable.
 
 =head2 kill_sleeptime
 
