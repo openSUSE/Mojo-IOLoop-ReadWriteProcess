@@ -8,6 +8,16 @@ use FindBin;
 use Mojo::File qw(tempfile path);
 use lib ("$FindBin::Bin/lib", "../lib", "lib");
 
+sub attempt {
+  my ($process, $attempt) = @_;
+
+  until ($process->is_running || $attempt == 0) {
+    $process->_diag("Attempt $attempt for PID " . $process->pid);
+    sleep 1;
+    $attempt--;
+  }
+}
+
 subtest process => sub {
   use Mojo::IOLoop::ReadWriteProcess;
 
@@ -107,12 +117,8 @@ subtest 'process is_running()' => sub {
   pipe(PARENT, CHILD);
   $p->restart();
 
-# Give time to the child to be up
-  my $attempts = 10;
-  until ($p->is_running || $attempts == 0) {
-    sleep 1;
-    $attempts--;
-  }
+  # Give time to the child to be up
+  attempt $p => 10;
 
   is $p->is_running, 1, "Process now is running";
   $p->stop();
@@ -125,15 +131,18 @@ subtest 'process is_running()' => sub {
 subtest 'process execute()' => sub {
   my $test_script         = "$FindBin::Bin/data/process_check.sh";
   my $test_script_sigtrap = "$FindBin::Bin/data/term_trap.sh";
+  my $test_script_nothing = "$FindBin::Bin/data/do_nothing_interesting.sh";
+
   plan skip_all =>
     "You do not seem to have bash, which is required (as for now) for this test"
     unless -e '/bin/bash';
-  plan skip_all =>
-"You do not seem to have $test_script. The script is required to run the test"
-    unless -e $test_script;
-  plan skip_all =>
-"You do not seem to have $test_script_sigtrap. The script is required to run the test"
-    unless -e $test_script_sigtrap;
+
+  for ($test_script_nothing, $test_script_sigtrap, $test_script) {
+    plan skip_all =>
+      "You do not seem to have $_. The script is required to run the test"
+      unless -e $_;
+  }
+
   use Mojo::IOLoop::ReadWriteProcess;
   my $p = Mojo::IOLoop::ReadWriteProcess->new(execute => $test_script)->start();
   is $p->getline, "TEST normal print\n", 'Get right output from stdout';
@@ -189,13 +198,18 @@ subtest 'process execute()' => sub {
 
   my $p2 = Mojo::IOLoop::ReadWriteProcess->new(
     separate_err => 0,
-    execute      => $test_script,
+    execute      => $test_script_nothing,
     set_pipes    => 0
   );
   $p2->start();
-  is $p2->getline,    undef, "pipes are correctly disabled";
-  is $p2->getline,    undef, "pipes are correctly disabled";
-  is $p2->is_running, 1,     'process is still running';
+  is $p2->getline, undef, "pipes are correctly disabled";
+  is $p2->getline, undef, "pipes are correctly disabled";
+  is $p2->errored, 0,     'No errors';
+
+  # Give time to the child to be up
+  attempt $p2 => 10;
+  is $p2->is_running, 1, 'process is still running';
+
   $p2->stop();
   is !!$p2->_status, 1,
     'take exit status even with set_pipes = 0 (we killed it)';
