@@ -193,8 +193,9 @@ subtest 'process execute()' => sub {
     set_pipes    => 0
   );
   $p2->start();
-  is $p2->getline, undef, "pipes are correctly disabled";
-  is $p2->getline, undef, "pipes are correctly disabled";
+  is $p2->getline,    undef, "pipes are correctly disabled";
+  is $p2->getline,    undef, "pipes are correctly disabled";
+  is $p2->is_running, 1,     'process is still running';
   $p2->stop();
   is !!$p2->_status, 1,
     'take exit status even with set_pipes = 0 (we killed it)';
