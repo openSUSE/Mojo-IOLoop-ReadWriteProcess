@@ -86,11 +86,7 @@ sub _open {
 
   my ($wtr, $rdr, $err);
   $err = gensym;
-  my $pid = open3(
-    ($self->set_pipes) ? $wtr : undef,
-    ($self->set_pipes) ? $rdr : undef,
-    ($self->set_pipes && $self->separate_err) ? $err : undef, @args
-  );
+  my $pid = open3($wtr, $rdr, ($self->separate_err) ? $err : undef, @args);
 
   die "Cannot create pipe: $!" unless defined $pid;
   $self->process_id($pid);
@@ -406,7 +402,7 @@ sub start {
 }
 
 sub signal {
-  my $self   = shift;
+  my $self = shift;
   my $signal = shift // $self->_default_kill_signal;
   return unless $self->is_running;
   $self->_diag("Sending signal '$signal' to " . $self->process_id) if DEBUG;
