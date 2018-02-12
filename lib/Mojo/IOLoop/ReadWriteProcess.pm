@@ -44,7 +44,8 @@ has _deparse              => sub { B::Deparse->new }
   if DEBUG;
 has _deserialize => sub { \&Storable::thaw };
 has _serialize   => sub { \&Storable::freeze };
-has _default_kill_signal => POSIX::SIGTERM;
+has _default_kill_signal     => POSIX::SIGTERM;
+has _default_blocking_signal => POSIX::SIGKILL;
 
 # Override new() just to support sugar syntax
 # so it is possible to do : process->new(sub{ print "Hello World\n" })->start->stop; and so on.
@@ -80,6 +81,7 @@ sub _open_collect_status {
 sub _open {
   my ($self, @args) = @_;
   $self->_diag('Execute: ' . (join ', ', map { "'$_'" } @args)) if DEBUG;
+
   $SIG{CHLD} = sub {
     local ($!, $?);
     $self->emit('SIG_CHLD', $!, $?);
@@ -190,17 +192,14 @@ sub _fork {
   # Defered collect of return status
   $self->once(collect_status => \&_fork_collect_status);
 
-  if (DEBUG) {
-    my $code_str = $self->_deparse->coderef2text($code);
-    $self->_diag("Fork: $code_str");
-  }
+  $self->_diag("Fork: " . $self->_deparse->coderef2text($code)) if DEBUG;
 
   my $pid = fork;
   die "Cannot fork: $!" unless defined $pid;
 
   if ($pid == 0) {
     local $SIG{CHLD};
-    local $SIG{TERM} = sub { $self->_exit(1) };
+    local $SIG{TERM} = sub { $self->emit('SIG_TERM')->_exit(1) };
 
     my $return;
     my $internal_err;
@@ -300,8 +299,7 @@ sub _new_err {
 
   # XXX: Need to switch, we should emit one error at the time, and _shutdown
   # should emit just the ones wasn't emitted
-  $self->emit(process_error => [$err]);
-  return $self;
+  return $self->emit(process_error => [$err]);
 }
 
 sub _exit {
@@ -443,7 +441,8 @@ sub stop {
     $self->_diag(
       "Could not kill process id: " . $self->process_id . " going for SIGKILL")
       if DEBUG;
-    $self->signal(POSIX::SIGKILL);
+    $self->emit('process_stuck');
+    $self->signal($self->_default_blocking_signal);
     waitpid($self->process_id, 0);
     $self->_status($?);
   }
@@ -461,17 +460,17 @@ sub _shutdown {
   $self->_clean_pidfile;
   $self->emit('process_error', $self->error)
     if $self->error && $self->error->size > 0;
-  $self->emit('stop');
-  return $self;
+  return $self->emit('stop');
 }
 
 sub DESTROY { +shift()->_shutdown; }
 
 # General alias
-*pid  = \&process_id;
-*died = \&_errored;
-*diag = \&_diag;
-*pool = \&batch;
+*pid    = \&process_id;
+*died   = \&_errored;
+*failed = \&_errored;
+*diag   = \&_diag;
+*pool   = \&batch;
 
 # Aliases - write
 *write         = \&write_stdin;
@@ -560,35 +559,6 @@ Mojo::IOLoop::ReadWriteProcess is yet another process manager.
 L<Mojo::IOLoop::ReadWriteProcess> inherits all events from L<Mojo::EventEmitter> and can emit
 the following new ones.
 
-=head2 SIG_CHLD
-
- $process->on(SIG_CHLD => sub {
-   my ($self) = @_;
-   ...
- });
-
-Emitted when we receive SIG_CHLD.
-
-=head2 collect_status
-
- $process->on(collect_status => sub {
-   my ($self) = @_;
-   ...
- });
-
-Emitted when on child process waitpid.
-It is used internally to get the child process status.
-
-=head2 process_error
-
- $process->on(process_error => sub {
-   my ($e) = @_;
-   my @errors = @{$e};
- });
-
-Emitted when the process produce errors.
-
-
 =head2 start
 
  $process->on(start => sub {
@@ -606,6 +576,54 @@ Emitted when the process starts.
  });
 
 Emitted when the process stops.
+
+=head2 process_error
+
+ $process->on(process_error => sub {
+   my ($e) = @_;
+   my @errors = @{$e};
+ });
+
+Emitted when the process produce errors.
+
+=head2 process_stuck
+
+ $process->on(process_stuck => sub {
+   my ($self) = @_;
+   ...
+ });
+
+Emitted when C<blocking_stop> is set and all attempts for killing the process
+in C<max_kill_attempts> have been exhausted.
+The event is emitted before attempting to kill it with SIGKILL and becoming blocking.
+
+=head2 SIG_CHLD
+
+ $process->on(SIG_CHLD => sub {
+   my ($self) = @_;
+   ...
+ });
+
+Emitted when we receive SIG_CHLD.
+
+=head2 SIG_TERM
+
+ $process->on(SIG_TERM => sub {
+   my ($self) = @_;
+   ...
+ });
+
+Emitted when the child forked process receives SIG_TERM, before exiting.
+
+=head2 collect_status
+
+ $process->on(collect_status => sub {
+   my ($self) = @_;
+   ...
+ });
+
+Emitted when on child process waitpid.
+It is used internally to get the child process status.
 
 =head1 ATTRIBUTES
 
