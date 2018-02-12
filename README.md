@@ -56,6 +56,16 @@ Mojo::IOLoop::ReadWriteProcess is yet another process manager.
 [Mojo::IOLoop::ReadWriteProcess](https://metacpan.org/pod/Mojo::IOLoop::ReadWriteProcess) inherits all events from [Mojo::EventEmitter](https://metacpan.org/pod/Mojo::EventEmitter) and can emit
 the following new ones.
 
+## collect\_status
+
+    $process->on(collect_status => sub {
+      my ($self) = @_;
+      ...
+    });
+
+Emitted when on child process waitpid.
+It is used internally to get the child process status.
+
 ## process\_error
 
     $process->on(process_error => sub {
