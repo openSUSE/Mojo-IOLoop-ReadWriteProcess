@@ -39,6 +39,7 @@ has set_pipes             => 1;
 has verbose               => 1;
 has internal_pipes        => 1;
 has serialize             => 0;
+has collect_status        => 1;
 has _deparse              => sub { B::Deparse->new }
   if DEBUG;
 has _deserialize => sub { \&Storable::thaw };
@@ -81,6 +82,8 @@ sub _open {
   $self->_diag('Execute: ' . (join ', ', map { "'$_'" } @args)) if DEBUG;
   $SIG{CHLD} = sub {
     local ($!, $?);
+    $self->emit('SIG_CHLD', $!, $?);
+    return unless $self->collect_status;
     $self->emit('collect_status') while ((my $pid = waitpid(-1, WNOHANG)) > 0);
   };
 
@@ -270,6 +273,8 @@ sub _fork {
 
   $SIG{CHLD} = sub {
     local ($!, $?);
+    $self->emit('SIG_CHLD', $!, $?);
+    return unless $self->collect_status;
     $self->emit('collect_status') while ((my $pid = waitpid(-1, WNOHANG)) > 0);
   };
 
@@ -402,7 +407,7 @@ sub start {
 }
 
 sub signal {
-  my $self = shift;
+  my $self   = shift;
   my $signal = shift // $self->_default_kill_signal;
   return unless $self->is_running;
   $self->_diag("Sending signal '$signal' to " . $self->process_id) if DEBUG;
@@ -555,6 +560,15 @@ Mojo::IOLoop::ReadWriteProcess is yet another process manager.
 L<Mojo::IOLoop::ReadWriteProcess> inherits all events from L<Mojo::EventEmitter> and can emit
 the following new ones.
 
+=head2 SIG_CHLD
+
+ $process->on(SIG_CHLD => sub {
+   my ($self) = @_;
+   ...
+ });
+
+Emitted when we receive SIG_CHLD.
+
 =head2 collect_status
 
  $process->on(collect_status => sub {
@@ -659,6 +673,10 @@ Defaults to C<5>, is the number of attempts before bailing out.
 
 It can be used with blocking_stop, so if the number of attempts are exhausted,
 a SIGKILL and waitpid will be tried at the end.
+
+=head2 collect_status
+
+Defaults to C<1>, If enabled it will automatically collect the status of the children process.
 
 =head2 serialize
 
