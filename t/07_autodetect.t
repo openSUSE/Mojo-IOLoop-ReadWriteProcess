@@ -34,7 +34,12 @@ subtest autodetect => sub {
   $p->on(collect_status => sub { $status++ });
 
   $p->start();
-  $p->wait_stop;
+
+  sleep 1
+    for (0 .. 10)
+    ;    # If we just sleep and then exit, we won't be able to catch signals
+
+  $p->stop;
   is $status, 3, 'Status fired 3 times';
   is $p->subprocess->size, 2, 'detection works' or die diag explain $p;
 
@@ -48,39 +53,43 @@ subtest autodetect => sub {
 };
 
 subtest autodetect_fork => sub {
-
   my $fired;
   my $status;
   local $SIG{CHLD};
 
-  # Fork, and die after a bit
-  my $pid = fork;
-  die "Cannot fork: $!" unless defined $pid;
-  if ($pid == 0) { sleep 2; die(); }
-  $pid = fork;
-  die "Cannot fork: $!" unless defined $pid;
-  if ($pid == 0) { sleep 2; die(); }
-  $pid = fork;
-  die "Cannot fork: $!" unless defined $pid;
-  if ($pid == 0) { sleep 2; die(); }
-  $pid = fork;
-  die "Cannot fork: $!" unless defined $pid;
-  if ($pid == 0) { sleep 2; die(); }
-  $pid = fork;
-  die "Cannot fork: $!" unless defined $pid;
-  if ($pid == 0) { sleep 2; die(); }
-  $pid = fork;
-  die "Cannot fork: $!" unless defined $pid;
-  if ($pid == 0) { sleep 2; die(); }
-
-  my $master_p = process(sub { sleep 4; });
+  my $master_p = process(sub { });
   $master_p->detect_subprocess(1);
   $master_p->on(new_subprocess => sub { $fired++ });
   $master_p->on(collect_status => sub { $status++ });
-
   $master_p->start();
-  $master_p->wait_stop;
+
+  # Fork, and die after a bit
+  my $pid = fork;
+  die "Cannot fork: $!" unless defined $pid;
+  if ($pid == 0) { sleep 2; exit 0 }
+  $pid = fork;
+  die "Cannot fork: $!" unless defined $pid;
+  if ($pid == 0) { sleep 2; exit 0 }
+  $pid = fork;
+  die "Cannot fork: $!" unless defined $pid;
+  if ($pid == 0) { sleep 2; exit 0 }
+  $pid = fork;
+  die "Cannot fork: $!" unless defined $pid;
+  if ($pid == 0) { sleep 2; exit 0 }
+  $pid = fork;
+  die "Cannot fork: $!" unless defined $pid;
+  if ($pid == 0) { sleep 2; exit 0 }
+  $pid = fork;
+  die "Cannot fork: $!" unless defined $pid;
+  if ($pid == 0) { sleep 2; exit 0 }
+
+  sleep 1
+    for (0 .. 10)
+    ;    # If we just sleep and then exit, we won't be able to catch signals
+  $master_p->stop;
   is $status, 7, 'Status fired 7 times';
+  is $fired,  6, 'Status fired 7 times';
+
   is $master_p->subprocess->size, 6, 'detection works'
     or die diag explain $master_p;
 };
