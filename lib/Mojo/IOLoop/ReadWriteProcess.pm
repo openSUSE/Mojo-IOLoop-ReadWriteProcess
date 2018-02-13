@@ -519,8 +519,6 @@ sub _shutdown {
   return $self->emit('stop');
 }
 
-sub DESTROY { +shift()->_shutdown; }
-
 # General alias
 *pid    = \&process_id;
 *died   = \&_errored;
