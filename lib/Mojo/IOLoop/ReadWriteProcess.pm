@@ -17,30 +17,35 @@ use IO::Handle;
 use IO::Pipe;
 use IO::Select;
 use IPC::Open3;
-use POSIX ":sys_wait_h";
+use POSIX qw( :sys_wait_h :signal_h );
 use Symbol 'gensym';
 use Storable;
+use Mojo::IOLoop::Stream;
 use constant DEBUG => $ENV{MOJO_PROCESS_DEBUG};
+
+has [
+  qw(kill_sleeptime sleeptime_during_kill),
+  qw(separate_err autoflush set_pipes verbose),
+  qw(internal_pipes collect_status)
+] => 1;
+
+has [qw(blocking_stop serialize detect_subprocess)] => 0;
 
 has [
   qw(execute code process_id pidfile return_status),
   qw(channel_in channel_out write_stream read_stream error_stream),
   qw(_internal_err _internal_return _status)
 ];
-has blocking_stop         => 0;
-has max_kill_attempts     => 5;
-has kill_sleeptime        => 1;
-has sleeptime_during_kill => 1;
-has args                  => sub { [] };
-has separate_err          => 1;
-has autoflush             => 1;
-has error                 => sub { Mojo::Collection->new };
-has set_pipes             => 1;
-has verbose               => 1;
-has internal_pipes        => 1;
-has serialize             => 0;
-has collect_status        => 1;
-has _deparse              => sub { B::Deparse->new }
+
+has max_kill_attempts => 5;
+
+has args  => sub { [] };
+has error => sub { Mojo::Collection->new };
+
+has subprocess => sub { Mojo::Collection->new };
+has ioloop     => sub { Mojo::IOLoop->singleton };
+
+has _deparse => sub { B::Deparse->new }
   if DEBUG;
 has _deserialize => sub { \&Storable::thaw };
 has _serialize   => sub { \&Storable::freeze };
@@ -52,6 +57,20 @@ has _default_blocking_signal => POSIX::SIGKILL;
 sub new {
   push(@_, code => splice @_, 1, 1) if ref $_[1] eq "CODE";
   return shift->SUPER::new(@_);
+}
+
+sub to_ioloop {
+  my $self = shift;
+  confess 'Pipes needs to be set!' unless $self->read_stream;
+  my $stream = Mojo::IOLoop::Stream->new($self->read_stream)->timeout(0);
+  $self->ioloop->stream($stream);
+  my $me = $$;
+  $stream->on(
+    close => sub {
+      return unless !$self->detect_subprocess && $$ == $me;
+      $self->_collect->stop;
+    });
+  return $stream;
 }
 
 sub process { __PACKAGE__->new(@_) }
@@ -70,9 +89,36 @@ sub _diag {
   print STDERR ">> ${caller}(): @messages\n" if ($self->verbose || DEBUG);
 }
 
+sub _set_child_handler {
+  my $self     = shift;
+  my $sigset   = POSIX::SigSet->new;
+  my $blockset = POSIX::SigSet->new(SIGCHLD);
+
+  sigprocmask(SIG_BLOCK, $blockset, $sigset);
+  $SIG{CHLD} = sub {
+    local ($!, $?);
+    $self->emit('SIG_CHLD', $!, $?);
+    return unless $self->collect_status;
+    while ((my $pid = waitpid(-1, WNOHANG)) > 0) {
+      $self->emit('collect_status' => $pid);
+    }
+  };
+  sigprocmask(SIG_SETMASK, $sigset);
+}
+
 sub _open_collect_status {
   my $self = shift;
+  my $pid  = shift;
+
   return unless $self;
+  return push(
+    @{$self->subprocess},
+    $self->new()->pid($pid)->_open_collect_status($pid))
+    && $self->emit(new_subprocess => $self->subprocess->last)
+    if $self->detect_subprocess
+    && defined $pid
+    && $pid != $self->process_id;
+
   $self->_status($?);
   $self->_clean_pidfile;
 }
@@ -82,12 +128,7 @@ sub _open {
   my ($self, @args) = @_;
   $self->_diag('Execute: ' . (join ', ', map { "'$_'" } @args)) if DEBUG;
 
-  $SIG{CHLD} = sub {
-    local ($!, $?);
-    $self->emit('SIG_CHLD', $!, $?);
-    return unless $self->collect_status;
-    $self->emit('collect_status') while ((my $pid = waitpid(-1, WNOHANG)) > 0);
-  };
+  $self->_set_child_handler;
 
   my ($wtr, $rdr, $err);
   $err = gensym;
@@ -97,7 +138,7 @@ sub _open {
   $self->process_id($pid);
 
   # Defered collect of return status and removal of pidfile
-  $self->once(collect_status => \&_open_collect_status);
+  $self->on(collect_status => \&_open_collect_status);
 
   return $self unless $self->set_pipes();
 
@@ -112,9 +153,26 @@ sub _open {
 
 sub _clean_pidfile { unlink(shift->pidfile) if $_[0]->pidfile }
 
+sub _collect {
+  my ($self, $pid) = @_;
+  $pid //= $self->pid;
+  waitpid $pid, 0;
+  return $self->_open_collect_status($pid) if $self->execute;
+  return $self->_fork_collect_status($pid) if $self->code;
+}
+
 sub _fork_collect_status {
   my $self = shift;
+  my $pid  = shift;
   return unless $self;
+  return push(
+    @{$self->subprocess},
+    $self->new->pid($pid)->_fork_collect_status($pid))
+    && $self->emit(new_subprocess => $self->subprocess->last)
+    if $self->detect_subprocess
+    && defined $pid
+    && $pid != $self->process_id;
+
   my $return_reader;
   my $internal_err_reader;
   my $rt;
@@ -153,6 +211,7 @@ sub _fork_collect_status {
   }
 
   $self->_clean_pidfile;
+  return $self;
 }
 
 # Handle forking of code
@@ -190,7 +249,8 @@ sub _fork {
   }
 
   # Defered collect of return status
-  $self->once(collect_status => \&_fork_collect_status);
+
+  $self->on(collect_status => \&_fork_collect_status);
 
   $self->_diag("Fork: " . $self->_deparse->coderef2text($code)) if DEBUG;
 
@@ -270,12 +330,7 @@ sub _fork {
   }
   $self->process_id($pid);
 
-  $SIG{CHLD} = sub {
-    local ($!, $?);
-    $self->emit('SIG_CHLD', $!, $?);
-    return unless $self->collect_status;
-    $self->emit('collect_status') while ((my $pid = waitpid(-1, WNOHANG)) > 0);
-  };
+  $self->_set_child_handler;
 
   return $self unless $self->set_pipes();
 
@@ -404,7 +459,7 @@ sub start {
   return $self;
 }
 
-sub signal {
+sub send_signal {
   my $self   = shift;
   my $signal = shift // $self->_default_kill_signal;
   return unless $self->is_running;
@@ -429,7 +484,7 @@ sub stop {
         . $self->pid)
       if DEBUG;
     sleep $self->sleeptime_during_kill if $self->sleeptime_during_kill;
-    $self->signal();
+    $self->send_signal();
     $ret = waitpid($self->process_id, WNOHANG);
     $self->_status($?);
     $attempt++;
@@ -442,7 +497,7 @@ sub stop {
       "Could not kill process id: " . $self->process_id . " going for SIGKILL")
       if DEBUG;
     $self->emit('process_stuck');
-    $self->signal($self->_default_blocking_signal);
+    $self->send_signal($self->_default_blocking_signal);
     waitpid($self->process_id, 0);
     $self->_status($?);
   }
@@ -460,6 +515,7 @@ sub _shutdown {
   $self->_clean_pidfile;
   $self->emit('process_error', $self->error)
     if $self->error && $self->error->size > 0;
+  $self->unsubscribe('collect_status');
   return $self->emit('stop');
 }
 
@@ -471,6 +527,7 @@ sub DESTROY { +shift()->_shutdown; }
 *failed = \&_errored;
 *diag   = \&_diag;
 *pool   = \&batch;
+*signal = \&send_signal;
 
 # Aliases - write
 *write         = \&write_stdin;
@@ -597,6 +654,16 @@ Emitted when C<blocking_stop> is set and all attempts for killing the process
 in C<max_kill_attempts> have been exhausted.
 The event is emitted before attempting to kill it with SIGKILL and becoming blocking.
 
+=head2 new_subprocess
+
+ $process->on(new_subprocess => sub {
+   my ($self, $new_process) = @_;
+   my $status = $new_process->exit_status;
+   ...
+ });
+
+Emitted when C<detect_subprocess> is set and will be fired with the collected process.
+
 =head2 SIG_CHLD
 
  $process->on(SIG_CHLD => sub {
@@ -624,6 +691,7 @@ Emitted when the child forked process receives SIG_TERM, before exiting.
 
 Emitted when on child process waitpid.
 It is used internally to get the child process status.
+Note: events attached to it are wiped when process has been stopped.
 
 =head1 ATTRIBUTES
 
@@ -679,6 +747,53 @@ Array or arrayref of options to pass by to the external binary or the code block
 
 Set it to 1 if you want to do blocking stop of the process.
 
+=head2 detect_subprocess
+
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+
+    # fork as usual in the code, or either create processes and never wait for them.
+    process(sub { ... expensive operation ... } )->start();
+
+    my $process = process(sub {});
+    $process->detect_subprocess(1);
+    $process->on( new_subprocess => sub { print "Not known process: ".(pop->pid)." reaped" } );
+    $process->start();
+
+    # Move other bits..
+
+    $process->wait_stop(); # Just wait on the master one (must be last one called in sequence)
+
+    my @sub_p = $process->subprocess()->to_array;
+
+Set it to 1 if you want the last spawned process to be master and be able to
+detect ended processes.
+
+=head2 subprocess
+
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+
+    # fork as usual in the code, or either create processes and never wait for them.
+    process(sub { ... expensive operation ... } )->start();
+
+    my $process = process(sub { print "Hello"; sleep 1 });
+    $process->detect_subprocess(1);
+    $process->start();
+    $process->on( new_subprocess => sub { print "Not known process: ".(pop->pid)." reaped" } );
+    $process->wait_stop(); # Just wait on the master one (must be last one called in sequence)
+
+    my $subprocesses = $process->subprocess();
+    my $first = $subprocesses->first;
+
+Returns a L<Mojo::Collection> of L<Mojo::IOLoop::ReadWriteProcess> that contains the pid and
+the exit status of other processes that are sending a SIG_CHLD.
+
+=head2 ioloop
+
+  my $loop    = $process->ioloop;
+  $subprocess = $process->ioloop(Mojo::IOLoop->new);
+
+Event loop object to control, defaults to the global L<Mojo::IOLoop> singleton.
+
 =head2 max_kill_attempts
 
     use Mojo::IOLoop::ReadWriteProcess;
@@ -695,6 +810,9 @@ a SIGKILL and waitpid will be tried at the end.
 =head2 collect_status
 
 Defaults to C<1>, If enabled it will automatically collect the status of the children process.
+Disable it in case you want to manage your process child directly, and do not want to rely on
+automatic collect status. If you won't overwrite your C<SIGCHLD> handler,
+the C<SIG_CHLD> event will be still emitted.
 
 =head2 serialize
 
@@ -801,6 +919,24 @@ Inspect the codeblock return.
 
 Internal function to print information to STDERR if verbose attribute is set or either DEBUG mode enabled.
 You can use it if you wish to display information on the process status.
+
+=head2 to_ioloop()
+
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+
+    my $p = process(sub {  print "Hello from first process\n"; sleep 1 });
+
+    $p->start(); # Start and sets the handlers
+    my $stream = $p->to_ioloop; # Get the stream and demand to IOLoop
+    my $output;
+
+    # Hook on Mojo::IOLoop::Stream events
+    $stream->on(read => sub { $output .= pop;  $p->is_running ...  });
+
+    Mojo::IOLoop->singleton->start() unless Mojo::IOLoop->singleton->is_running;
+
+Returns a L<Mojo::IOLoop::Stream> object and demand the wait operation to L<Mojo::IOLoop>.
+It needs C<set_pipes> enabled. Default IOLoop can be overridden in C<ioloop()>.
 
 =head2 wait()
 
@@ -939,13 +1075,13 @@ Gets all the channel output of the process.
 
 Gets all the STDERR output of the process.
 
-=head2 signal()
+=head2 send_signal()
 
     use Mojo::IOLoop::ReadWriteProcess qw(process);
     use POSIX;
     my $p = process( execute => "/path/to/bin" )->start;
 
-    $p->signal(POSIX::SIGKILL);
+    $p->send_signal(POSIX::SIGKILL);
 
 Send a signal to the process
 
