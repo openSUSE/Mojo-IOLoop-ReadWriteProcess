@@ -470,7 +470,7 @@ sub send_signal {
 
 sub stop {
   my $self = shift;
-  return $self->_shutdown unless $self->is_running;
+  return $self->_shutdown(1) unless $self->is_running;
 
   my $ret;
   my $attempt = 1;
@@ -511,6 +511,7 @@ sub stop {
 
 sub _shutdown {
   my $self = shift;
+  waitpid $self->pid, 0 if pop;
   $self->emit('collect_status') if !defined $self->_status;
   $self->_clean_pidfile;
   $self->emit('process_error', $self->error)
