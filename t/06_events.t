@@ -46,13 +46,13 @@ subtest SIG_CHLD => sub {
     SIG_CHLD => sub {
       my $self = shift;
       $reached++;
-      $self->emit('collect_status')
-        while ((my $pid = waitpid(-1, WNOHANG)) > 0);
+      while ((my $pid = waitpid(-1, WNOHANG)) > 0) {
+        $self->emit('collect_status' => $pid);
+      }
     });
 
   $p2->start;
   sleep 1 until $p2->is_running;
-
   $p2->stop;
 
   is $reached, 2, 'SIG_CHLD fired';
