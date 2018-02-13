@@ -21,14 +21,16 @@ subtest SIG_CHLD => sub {
   my $collect;
 
 # In case of overriding of standard behavior.
+# XXX: Flaky tests, re-elaboration is needed
   my $p = process(code => sub { print "Hello\n" }, collect_status => 0);
   $p->on(collect_status => sub { $collect++ });
   $p->on(
     SIG_CHLD => sub {
       my $self = shift;
       $reached++;
-      $self->emit('collect_status')
-        while ((my $pid = waitpid(-1, WNOHANG)) > 0);
+      while ((my $pid = waitpid(-1, WNOHANG)) > 0) {
+        $self->emit('collect_status' => $pid);
+      }
     });
 
   $p->start;
