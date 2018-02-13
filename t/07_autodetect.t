@@ -13,14 +13,20 @@ subtest autodetect => sub {
   my $reached;
   my $collect;
   my $status;
-  my $orphan2 = process(sub {  print "Hello from first process\n"; sleep 1 })->start;
-  my $orphan = process(sub {  print "Hello from second process\n"; sleep 1 })->start;
-  my $p = process(code => sub {
-    print "Hello from master process\n";
-    # Note: we do not collect any state, wait ensures that processes above are terminated
-    $orphan->wait;
-    $orphan2->wait;
-  }, detect_subprocess => 1);
+  my $orphan2
+    = process(sub { print "Hello from first process\n"; sleep 1 })->start;
+  my $orphan
+    = process(sub { print "Hello from second process\n"; sleep 1 })->start;
+  my $p = process(
+    code => sub {
+      print "Hello from master process\n";
+
+# Note: we do not collect any state, wait() ensures that processes above are terminated
+      $orphan->wait;
+      $orphan2->wait;
+    },
+    detect_subprocess => 1
+  );
   my $fired;
 
   $p->on(new_subprocess => sub { $fired++ });
@@ -30,7 +36,12 @@ subtest autodetect => sub {
   $p->wait_stop;
   is $status, 3, 'Status fired 2 times';
   is $p->subprocess->size, 2, 'detection works' or die diag explain $p;
-  is $p->subprocess->last->pid,$orphan->pid, 'Orphan collected';
+
+  is $p->subprocess->grep(sub { $_->pid eq $orphan->pid })->first->pid,
+    $orphan->pid, 'Orphan collected';
+  is $p->subprocess->grep(sub { $_->pid eq $orphan2->pid })->first->pid,
+    $orphan2->pid, 'Orphan2 collected';
+
   is $fired, 2, 'New subprocess event fired';
   ok !!$p->exit_status, 'Got exit status from master';
 };
