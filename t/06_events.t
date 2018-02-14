@@ -40,8 +40,6 @@ subtest SIG_CHLD => sub {
   is $reached, 1, 'SIG_CHLD fired';
   is $collect, 1, 'collect_status fired once';
 
-  ok !!$p->exit_status, 'Got exit status, self-collected';
-
   my $p2 = process(execute => $test_script, collect_status => 0);
 
   $p2->on(
@@ -58,7 +56,6 @@ subtest SIG_CHLD => sub {
   $p2->stop;
 
   is $reached, 2, 'SIG_CHLD fired';
-  ok !!$p2->exit_status, 'Got exit status, self-collected';
 };
 
 subtest collect_status => sub {
