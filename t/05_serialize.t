@@ -25,7 +25,7 @@ my $q = queue;
 $q->pool->maximum_processes(2);
 $q->queue->maximum_processes(800);
 
-my $proc = 300;
+my $proc = 10;
 my $fired;
 
 my $i = 1;
