@@ -21,7 +21,13 @@ use POSIX qw( :sys_wait_h :signal_h );
 use Symbol 'gensym';
 use Storable;
 use Mojo::IOLoop::Stream;
+use Config;
+
 use constant DEBUG => $ENV{MOJO_PROCESS_DEBUG};
+
+# See https://github.com/torvalds/linux/blob/master/include/uapi/linux/prctl.h
+use constant PR_SET_CHILD_SUBREAPER => 36;
+use constant PR_GET_CHILD_SUBREAPER => 37;
 
 has [
   qw(kill_sleeptime sleeptime_during_kill),
@@ -29,7 +35,7 @@ has [
   qw(internal_pipes collect_status)
 ] => 1;
 
-has [qw(blocking_stop serialize detect_subprocess)] => 0;
+has [qw(blocking_stop serialize detect_subprocess subreaper)] => 0;
 
 has [
   qw(execute code process_id pidfile return_status),
@@ -64,7 +70,7 @@ sub to_ioloop {
   confess 'Pipes needs to be set!' unless $self->read_stream;
   my $stream = Mojo::IOLoop::Stream->new($self->read_stream)->timeout(0);
   $self->ioloop->stream($stream);
-  my $me = $$;
+  my $me = $self->pid;
   $stream->on(
     close => sub {
       return unless !$self->detect_subprocess && $$ == $me;
@@ -97,30 +103,34 @@ sub _set_child_handler {
   sigprocmask(SIG_BLOCK, $blockset, $sigset);
   $SIG{CHLD} = sub {
     local ($!, $?);
-    $self->emit('SIG_CHLD', $!, $?);
+    $self->emit('SIG_CHLD');
     return unless $self->collect_status;
     while ((my $pid = waitpid(-1, WNOHANG)) > 0) {
-      $self->emit('collect_status' => $pid);
+      $self->emit('collect_status' => $pid => $? => $!);
     }
   };
   sigprocmask(SIG_SETMASK, $sigset);
 }
 
 sub _open_collect_status {
-  my $self = shift;
-  my $pid  = shift;
+  my ($self, $pid, $e, $errno) = @_;
 
   return unless $self;
   return push(
     @{$self->subprocess},
-    $self->new()->pid($pid)->_open_collect_status($pid))
+    $self->new->pid($pid)->_open_collect_status($pid => $e => $errno))
     && $self->emit(new_subprocess => $self->subprocess->last)
     if $self->detect_subprocess
     && defined $pid
     && $pid != $self->process_id;
 
-  $self->_status($?);
+  $self->_status($? // $e);
+  $self->_diag("Forked code Process Exit status: " . $self->exit_status)
+    if DEBUG;
+
   $self->_clean_pidfile;
+
+  return $self;
 }
 
 # Use open3 to launch external program.
@@ -162,12 +172,12 @@ sub _collect {
 }
 
 sub _fork_collect_status {
-  my $self = shift;
-  my $pid  = shift;
+  my ($self, $pid, $e, $errno) = @_;
+
   return unless $self;
   return push(
     @{$self->subprocess},
-    $self->new->pid($pid)->_fork_collect_status($pid))
+    $self->new->pid($pid)->_fork_collect_status($pid => $e => $errno))
     && $self->emit(new_subprocess => $self->subprocess->last)
     if $self->detect_subprocess
     && defined $pid
@@ -178,7 +188,9 @@ sub _fork_collect_status {
   my $rt;
   my @result_error;
 
-  $self->_status($?);
+  $self->_status($? // $e);
+  $self->_diag("Forked code Process Exit status: " . $self->exit_status)
+    if DEBUG;
 
   if ($self->_internal_return) {
     $return_reader
@@ -188,7 +200,8 @@ sub _fork_collect_status {
     $self->_new_err('Cannot read from return code pipe') && return
       unless IO::Select->new($return_reader)->can_read(10);
     $rt = $return_reader->getline();
-    $self->_diag("Forked code Process Returns: " . $rt) if DEBUG;
+    $self->_diag("Forked code Process Returns: " . ($rt ? $rt : 'nothing'))
+      if DEBUG;
     $self->return_status($self->serialize ?
         eval { $self->_deserialize->(b64_decode($rt)) }
       : $rt ? $rt
@@ -322,7 +335,8 @@ sub _fork {
       $internal_err->write($@) if $@;
       $internal_err->write($!) if !$@ && $!;
     }
-    $rt = @$rt[0] if scalar @$rt == 1 && !$self->serialize;
+    $rt = @$rt[0]
+      if !$self->serialize && ref $rt eq 'ARRAY' && scalar @$rt == 1;
     $rt = b64_encode(eval { $self->_serialize->($rt) })
       if $self->serialize && $return;
     $return->write($rt) if $return;
@@ -446,6 +460,8 @@ sub start {
       : $self->args
     : ();
 
+  $self->enable_subreaper if $self->subreaper;
+
   if ($self->code) {
     $self->_fork($self->code, @args);
   }
@@ -457,6 +473,16 @@ sub start {
   $self->emit('start');
 
   return $self;
+}
+
+sub disable_subreaper {
+  $_[0]->subreaper(1) unless $_[0]->_prctl(PR_SET_CHILD_SUBREAPER, 0) == 0;
+  $_[0];
+}
+
+sub enable_subreaper {
+  $_[0]->subreaper(0) unless $_[0]->_prctl(PR_SET_CHILD_SUBREAPER, 1) == 0;
+  $_[0];
 }
 
 sub send_signal {
@@ -496,8 +522,7 @@ sub stop {
     $self->_diag(
       "Could not kill process id: " . $self->process_id . " going for SIGKILL")
       if DEBUG;
-    $self->emit('process_stuck');
-    $self->send_signal($self->_default_blocking_signal);
+    $self->emit('process_stuck')->send_signal($self->_default_blocking_signal);
     waitpid($self->process_id, 0);
     $self->_status($?);
   }
@@ -520,6 +545,86 @@ sub _shutdown {
   return $self->emit('stop');
 }
 
+
+sub _get_prctl_syscall {
+
+  # Courtesy of Sys::Prctl
+  confess "Only Linux is supported" unless $^O eq 'linux';
+  my $SYS_prctl;
+
+  my $machine = (POSIX::uname())[4];
+
+  # if we're running on an x86_64 kernel, but a 32-bit process,
+  # we need to use the i386 syscall numbers.
+  if ($machine eq "x86_64" && $Config{ptrsize} == 4) {
+    $machine = "i386";
+  }
+
+  if ($machine =~ /^i[3456]86$/ | $machine
+    =~ /^blackfin|cris|frv|h8300|m32r|m68k|microblaze|mn10300|sh|s390|parisc$/)
+  {
+    $SYS_prctl = 172;
+  }
+  elsif ($machine eq "x86_64") {
+    $SYS_prctl = 157;
+  }
+  elsif ($machine eq "sparc64") {
+    $SYS_prctl = 147;
+  }
+  elsif ($machine eq "ppc") {
+    $SYS_prctl = 171;
+  }
+  elsif ($machine eq "ia64") {
+    $SYS_prctl = 1170;
+  }
+  elsif ($machine eq "alpha") {
+    $SYS_prctl = 348;
+  }
+  elsif ($machine eq "arm") {
+    $SYS_prctl = 0x900000 + 172;
+  }
+  elsif ($machine eq "avr32") {
+    $SYS_prctl = 148;
+  }
+  elsif ($machine eq "mips") {    # 32bit
+    $SYS_prctl = 4000 + 192;
+  }
+  elsif ($machine eq "mips64") {    # 64bit
+    $SYS_prctl = 5000 + 153;
+  }
+  elsif ($machine eq "xtensa") {
+    $SYS_prctl = 130;
+  }
+  else {
+    delete @INC{
+      qw<syscall.ph asm/unistd.ph bits/syscall.ph _h2ph_pre.ph
+        sys/syscall.ph>
+    };
+    my $rv = eval { require 'syscall.ph'; 1 }     ## no critic
+      or eval { require 'sys/syscall.ph'; 1 };    ## no critic
+    $SYS_prctl = eval { &SYS_prctl; };
+  }
+  return $SYS_prctl;
+}
+
+sub _prctl {
+  my ($self, $option, $arg2, $arg3, $arg4, $arg5) = @_;
+  confess 'prctl not supported in this platform!'
+    unless defined _get_prctl_syscall;
+  local $!;
+  my $ret = syscall(
+    _get_prctl_syscall(), $option,
+    ($arg2 or 0),
+    ($arg3 or 0),
+    ($arg4 or 0),
+    ($arg5 or 0));
+
+  $self->_diag($self->_prctl_call, "$option is unavailable on this platform.")
+    if $!{EINVAL};
+  $self->_diag("Error! $!") if $!;
+  return $ret;
+}
+
 # General alias
 *pid    = \&process_id;
 *died   = \&_errored;
@@ -527,6 +632,7 @@ sub _shutdown {
 *diag   = \&_diag;
 *pool   = \&batch;
 *signal = \&send_signal;
+*prctl  = \&_prctl;
 
 # Aliases - write
 *write         = \&write_stdin;
