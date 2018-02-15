@@ -520,7 +520,7 @@ sub stop {
 
   if ($self->blocking_stop && $self->is_running) {
     $self->_diag(
-      "Could not kill process id: " . $self->process_id . " going for SIGKILL")
+      "Could not kill process id: " . $self->process_id . ", blocking attempt")
       if DEBUG;
     $self->emit('process_stuck')->send_signal($self->_default_blocking_signal);
     waitpid($self->process_id, 0);
@@ -550,8 +550,6 @@ sub _get_prctl_syscall {
 
   # Courtesy of Sys::Prctl
   confess "Only Linux is supported" unless $^O eq 'linux';
-  my $SYS_prctl;
-
   my $machine = (POSIX::uname())[4];
 
   # if we're running on an x86_64 kernel, but a 32-bit process,
