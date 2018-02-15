@@ -550,11 +550,12 @@ sub _get_prctl_syscall {
 
   # Courtesy of Sys::Prctl
   confess "Only Linux is supported" unless $^O eq 'linux';
+
   my $machine = (POSIX::uname())[4];
+  die "Could not get machine type" unless $machine;
 
   # if we're running on an x86_64 kernel, but a 32-bit process,
   # we need to use the i386 syscall numbers.
-
   $machine = "i386" if ($machine eq "x86_64" && $Config{ptrsize} == 4);
 
   my $prctl_call
