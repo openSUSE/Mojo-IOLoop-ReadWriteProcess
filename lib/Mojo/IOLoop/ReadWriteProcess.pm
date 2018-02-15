@@ -92,7 +92,7 @@ sub parallel {
 sub _diag {
   my ($self, @messages) = @_;
   my $caller = (caller(1))[3];
-  print STDERR ">> ${caller}(): @messages\n" if ($self->verbose || DEBUG);
+  print STDERR ">> ${caller}(): @messages\n" if (DEBUG || $self->verbose);
 }
 
 sub _set_child_handler {
@@ -556,55 +556,38 @@ sub _get_prctl_syscall {
 
   # if we're running on an x86_64 kernel, but a 32-bit process,
   # we need to use the i386 syscall numbers.
-  if ($machine eq "x86_64" && $Config{ptrsize} == 4) {
-    $machine = "i386";
-  }
 
-  if ($machine =~ /^i[3456]86$/ | $machine
-    =~ /^blackfin|cris|frv|h8300|m32r|m68k|microblaze|mn10300|sh|s390|parisc$/)
-  {
-    $SYS_prctl = 172;
-  }
-  elsif ($machine eq "x86_64") {
-    $SYS_prctl = 157;
-  }
-  elsif ($machine eq "sparc64") {
-    $SYS_prctl = 147;
-  }
-  elsif ($machine eq "ppc") {
-    $SYS_prctl = 171;
-  }
-  elsif ($machine eq "ia64") {
-    $SYS_prctl = 1170;
-  }
-  elsif ($machine eq "alpha") {
-    $SYS_prctl = 348;
-  }
-  elsif ($machine eq "arm") {
-    $SYS_prctl = 0x900000 + 172;
-  }
-  elsif ($machine eq "avr32") {
-    $SYS_prctl = 148;
-  }
-  elsif ($machine eq "mips") {    # 32bit
-    $SYS_prctl = 4000 + 192;
-  }
-  elsif ($machine eq "mips64") {    # 64bit
-    $SYS_prctl = 5000 + 153;
-  }
-  elsif ($machine eq "xtensa") {
-    $SYS_prctl = 130;
-  }
-  else {
+  $machine = "i386" if ($machine eq "x86_64" && $Config{ptrsize} == 4);
+
+  my $prctl_call
+    = $machine
+    =~ /^i[3456]86|^blackfin|cris|frv|h8300|m32r|m68k|microblaze|mn10300|sh|s390|parisc$/
+    ? 172
+    : $machine eq "x86_64"  ? 157
+    : $machine eq "sparc64" ? 147
+    : $machine eq "ppc"     ? 171
+    : $machine eq "ia64"    ? 1170
+    : $machine eq "alpha"   ? 348
+    : $machine eq "arm"     ? 0x900000 + 172
+    : $machine eq "avr32"   ? 148
+    : $machine eq "mips"    ? 4000 + 192
+    : $machine eq "mips64"  ? 5000 + 153
+    : $machine eq "xtensa"  ? 130
+    :                         undef;
+
+  unless (defined $prctl_call) {
     delete @INC{
       qw<syscall.ph asm/unistd.ph bits/syscall.ph _h2ph_pre.ph
         sys/syscall.ph>
     };
     my $rv = eval { require 'syscall.ph'; 1 }     ## no critic
       or eval { require 'sys/syscall.ph'; 1 };    ## no critic
-    $SYS_prctl = eval { &SYS_prctl; };
+
+    $prctl_call = eval { &SYS_prctl; };
   }
-  return $SYS_prctl;
+  _diag(undef, "prctl() $prctl_call") if DEBUG;
+
+  return $prctl_call;
 }
 
 sub _prctl {
