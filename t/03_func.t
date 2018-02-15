@@ -8,6 +8,7 @@ use FindBin;
 use Mojo::File qw(tempfile path);
 use lib ("$FindBin::Bin/lib", "../lib", "lib");
 use Mojo::IOLoop::ReadWriteProcess qw(process queue parallel);
+no warnings; # This test mocks a lot
 
 subtest _new_err => sub {
   my $p = process();
