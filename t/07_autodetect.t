@@ -84,7 +84,7 @@ subtest autodetect_fork => sub {
   if ($pid == 0) { sleep 2; exit 110 }
 
   sleep 1
-    for (0 .. 10)
+    for (0 .. 20)
     ;    # If we just sleep and then exit, we won't be able to catch signals
   $master_p->stop;
   is $status, 7, 'Status fired 7 times';
