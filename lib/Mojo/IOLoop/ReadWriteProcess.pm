@@ -73,8 +73,8 @@ sub to_ioloop {
   my $me = $$;
   $stream->on(
     close => sub {
-      return unless $self->collect_status && $$ == $me;
-      $self->_collect->stop if !defined $self->_status;
+      return unless $$ == $me;
+      $self->_collect->stop unless defined $self->_status;
     });
   return $stream;
 }

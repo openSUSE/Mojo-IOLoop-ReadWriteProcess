@@ -34,6 +34,7 @@ subtest to_ioloop => sub {
 
   is $p->is_running,  0,  'Process is not running anymore';
   is $p->exit_status, 70, 'We got exit status';
+  ok !$p->errored, 'No error from the process';
   is $output, "Hello from first process\n", 'Got correct output from process';
 };
 
