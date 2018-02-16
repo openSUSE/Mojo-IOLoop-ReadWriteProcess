@@ -5,6 +5,7 @@
     Mojo::IOLoop::ReadWriteProcess
     Mojo::IOLoop::ReadWriteProcess::Pool
     Mojo::IOLoop::ReadWriteProcess::Exception
+    Mojo::IOLoop::ReadWriteProcess::Queue
   );
 
   done_testing;
