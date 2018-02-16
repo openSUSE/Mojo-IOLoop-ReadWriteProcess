@@ -205,8 +205,22 @@ Set it to 1 if you want to do blocking stop of the process.
 
     my @sub_p = $process->subprocess()->to_array;
 
-Set it to 1 if you want the last spawned process to be master and be able to
+Set it to 1 if you want the last started process to be master and be able to
 detect ended processes.
+
+## subreaper
+
+    use Mojo::IOLoop::ReadWriteProcess;
+    my $process = Mojo::IOLoop::ReadWriteProcess->new(code => sub { print "Hello ".shift() }, args => "User" );
+    $process->detect_subprocess(1)->subreaper(1)->start();
+    $process->on( stop => sub { $_->disable_subreaper } );
+    $process->stop();
+
+    # The process will print "Hello User"
+
+Mark the current process (not the child) as subreaper on start.
+It's on invoker behalf to disable subreaper when process stops, as it marks the current process and not the
+child.
 
 ## subprocess
 
@@ -348,6 +362,58 @@ call `_status()`.
     my $s = $p->wait_stop->return_status; # 42
 
 Inspect the codeblock return.
+
+## enable\_subreaper()
+
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+    my $p = process()->enable_subreaper;
+
+Mark the current process (not the child) as subreaper.
+This is used typically if you want to mark further childs as subreapers inside other forks.
+
+    my $master_p = process(
+      sub {
+        my $p = shift;
+        $p->enable_subreaper;
+
+        process(sub { sleep 4; exit 1 })->start();
+        process(
+          sub {
+            sleep 4;
+            process(sub { sleep 1; })->start();
+          })->start();
+        process(sub { sleep 4; exit 0 })->start();
+        process(sub { sleep 4; die })->start();
+        my $manager
+          = process(sub { sleep 2 })->detect_subprocess(1)->subreaper(1)->start();
+        sleep 1 for (0 .. 10);
+        $manager->stop;
+        return $manager->subprocess->size;
+      });
+
+    $master_p->detect_subprocess(1);
+    $master_p->subreaper(1);
+    $master_p->on(collect_status => sub { $status++ });
+
+    $master_p->on(stop => sub { shift()->disable_subreaper });
+    $master_p->start();
+
+    ....
+
+## disable\_subreaper()
+
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+    my $p = process()->disable_subreaper;
+
+Unset the current process (not the child) as subreaper.
+
+## prctl()
+
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+    my $p = process();
+    $p->prctl($option, $arg2, $arg3, $arg4, $arg5);
+
+Internal function to execute and wrap the prctl syscall, accepts the same arguments as prctl.
 
 ## diag()
 

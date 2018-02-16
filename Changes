@@ -2,6 +2,11 @@ Revision history for Perl extension Mojo-IOLoop-ReadWriteProcess
 
 {{$NEXT}}
 
+0.12 2018-02-16T12:53:26Z
+
+   - Enhance tests
+   - Add experimental subreaper and subprocess support
+
 0.11 2018-02-12T09:32:05Z
 
     - update cpanfile requirements (requires Module::Build now)
