@@ -70,11 +70,11 @@ sub to_ioloop {
   confess 'Pipes needs to be set!' unless $self->read_stream;
   my $stream = Mojo::IOLoop::Stream->new($self->read_stream)->timeout(0);
   $self->ioloop->stream($stream);
-  my $me = $self->pid;
+  my $me = $$;
   $stream->on(
     close => sub {
-      return unless !$self->detect_subprocess && $$ == $me;
-      $self->_collect->stop;
+      return unless $self->collect_status && $$ == $me;
+      $self->_collect->stop if !defined $self->_status;
     });
   return $stream;
 }
