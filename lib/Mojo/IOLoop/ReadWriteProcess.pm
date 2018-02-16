@@ -601,7 +601,7 @@ sub _prctl {
     ($arg4 or 0),
     ($arg5 or 0));
 
-  $self->_diag($self->_prctl_call, "$option is unavailable on this platform.")
+  $self->_diag(_get_prctl_syscall(), "$option is unavailable on this platform.")
     if $!{EINVAL};
   $self->_diag("Error! $!") if $!;
   return $ret;
