@@ -7,6 +7,7 @@ use POSIX;
 use FindBin;
 use Mojo::File qw(tempfile path);
 use lib ("$FindBin::Bin/lib", "../lib", "lib");
+use Mojo::IOLoop::ReadWriteProcess::Test::Utils qw(attempt);
 use Mojo::IOLoop::ReadWriteProcess qw(process);
 
 subtest autodetect => sub {
@@ -35,9 +36,12 @@ subtest autodetect => sub {
 
   $p->start();
 
-  sleep 1
-    for (0 .. 10)
-    ;    # If we just sleep and then exit, we won't be able to catch signals
+  # If we just sleep and then exit, we won't be able to catch signals
+  attempt {
+    attempts  => 10,
+    condition => sub { defined $status && $status == 3 },
+    cb => sub { sleep 1 }
+  };
 
   $p->stop;
   is $status, 3, 'Status fired 3 times';
@@ -83,9 +87,13 @@ subtest autodetect_fork => sub {
   die "Cannot fork: $!" unless defined $pid;
   if ($pid == 0) { sleep 2; exit 110 }
 
-  sleep 1
-    for (0 .. 20)
-    ;    # If we just sleep and then exit, we won't be able to catch signals
+  # If we just sleep and then exit, we won't be able to catch signals
+  attempt {
+    attempts  => 20,
+    condition => sub { defined $status && $status == 7 },
+    cb => sub { sleep 1 }
+  };
+
   $master_p->stop;
   is $status, 7, 'Status fired 7 times';
   is $fired,  6, 'Status fired 7 times';
@@ -153,9 +161,12 @@ subtest subreaper => sub {
   $master_p->on(stop => sub { shift()->disable_subreaper });
   $master_p->start();
 
-  sleep 1
-    for (0 .. 10)
-    ;    # If we just sleep and then exit, we won't be able to catch signals
+  # If we just sleep and then exit, we won't be able to catch signals
+  attempt {
+    attempts  => 20,
+    condition => sub { defined $status && $status == 8 },
+    cb => sub { sleep 1 }
+  };
 
   $master_p->stop();
   is $status, 8, 'collect_status fired 8 times';
@@ -199,9 +210,12 @@ subtest subreaper_bash => sub {
   is $master_p->subreaper, 1,
     'We are subreaper';    # Goes to 0 if attempt was unsuccessful
 
-  sleep 1
-    for (0 .. 15)
-    ;    # If we just sleep and then exit, we won't be able to catch signals
+  # If we just sleep and then exit, we won't be able to catch signals
+  attempt {
+    attempts  => 20,
+    condition => sub { defined $status && $status == 8 },
+    cb => sub { sleep 1 }
+  };
 
   $master_p->stop();
   is $status, 8, 'collect_status fired 8 times';
@@ -239,9 +253,12 @@ subtest subreaper_bash_execute => sub {
   $master_p->start();
   is $master_p->subreaper, 1, 'We are subreaper';
 
-  sleep 1
-    for (0 .. 15)
-    ;    # If we just sleep and then exit, we won't be able to catch signals
+  # If we just sleep and then exit, we won't be able to catch signals
+  attempt {
+    attempts  => 20,
+    condition => sub { defined $status && $status == 8 },
+    cb => sub { sleep 1 }
+  };
 
   $master_p->stop();
   is $status, 8, 'collect_status fired 8 times';
@@ -291,9 +308,12 @@ subtest manager => sub {
   $master_p->on(stop => sub { shift()->disable_subreaper });
   $master_p->start();
 
-  sleep 1
-    for (0 .. 10)
-    ;    # If we just sleep and then exit, we won't be able to catch signals
+  # If we just sleep and then exit, we won't be able to catch signals
+  attempt {
+    attempts  => 20,
+    condition => sub { defined $status && $status == 1 },
+    cb => sub { sleep 1 }
+  };
 
   $master_p->stop();
   is $status, 1, 'collect_status fired 1 times';
@@ -339,8 +359,11 @@ subtest subreaper_bash_roulette => sub {
     'We are subreaper';    # Goes to 0 if attempt was unsuccessful
 
   # If we just sleep and then exit, we won't be able to catch signals
-
-  sleep 1 for (0 .. 20);
+  attempt {
+    attempts  => 20,
+    condition => sub { defined $status && $status == 9 },
+    cb => sub { sleep 1 }
+  };
 
   $master_p->stop();
   is $status, 9, 'collect_status fired 8 times';
