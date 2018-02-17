@@ -2,6 +2,7 @@ package Mojo::IOLoop::ReadWriteProcess::Queue;
 use Mojo::Base -base;
 use Mojo::IOLoop::ReadWriteProcess::Pool;
 use Mojo::IOLoop::ReadWriteProcess;
+use Mojo::IOLoop::ReadWriteProcess::Session;
 
 has queue => sub { Mojo::IOLoop::ReadWriteProcess::Pool->new() };
 has pool  => sub { Mojo::IOLoop::ReadWriteProcess::Pool->new() };
@@ -26,7 +27,7 @@ sub consume {
   my $p = shift;
   until ($p->exhausted) {
     $p->start;
-    $p->wait_stop;
+    $p->wait;
   }
 }
 
