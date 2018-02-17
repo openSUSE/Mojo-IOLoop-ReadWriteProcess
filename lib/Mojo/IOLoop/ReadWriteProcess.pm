@@ -1,6 +1,6 @@
 package Mojo::IOLoop::ReadWriteProcess;
 
-our $VERSION = '0.12';
+our $VERSION = '0.13';
 
 use Mojo::Base 'Mojo::EventEmitter';
 use Mojo::File 'path';

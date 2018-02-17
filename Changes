@@ -2,6 +2,10 @@ Revision history for Perl extension Mojo-IOLoop-ReadWriteProcess
 
 {{$NEXT}}
 
+0.13 2018-02-17T19:34:51Z
+   - Move subreaper and subprocess logics to Mojo::IOLoop::ReadWriteProcess::Session
+   - Use Mojo::IOLoop::ReadWriteProcess::Session as global collector handler
+
 0.12 2018-02-16T12:53:26Z
 
    - Enhance tests
