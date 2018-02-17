@@ -232,21 +232,12 @@ the following new ones.
 
 =head2 SIG_CHLD
 
- $process->on(SIG_CHLD => sub {
+ $session->on(SIG_CHLD => sub {
    my ($self) = @_;
    ...
  });
 
 Emitted when we receive SIG_CHLD.
-
-=head2 SIG_TERM
-
- $process->on(SIG_TERM => sub {
-   my ($self) = @_;
-   ...
- });
-
-Emitted when the child forked process receives SIG_TERM, before exiting.
 
 =head2 collected
 
@@ -364,7 +355,7 @@ This is used typically if you want to mark further childs as subreapers inside o
           = process(sub { sleep 2 })->subreaper(1)->start();
         sleep 1 for (0 .. 10);
         $manager->stop;
-        return $manager->subprocess->size;
+        return session->all->size;
       });
 
     $master_p->subreaper(1);
