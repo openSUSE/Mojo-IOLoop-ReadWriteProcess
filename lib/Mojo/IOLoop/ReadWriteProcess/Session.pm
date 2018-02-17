@@ -4,7 +4,7 @@ use Mojo::Base 'Mojo::EventEmitter';
 use Mojo::IOLoop::ReadWriteProcess;
 use Carp 'confess';
 use POSIX qw( :sys_wait_h :signal_h );
-use Mojo::Collection;
+use Mojo::Collection 'c';
 
 our @EXPORT_OK = qw(session);
 use Exporter 'import';
@@ -102,16 +102,12 @@ sub clean {
   shift->reset();
 }
 
-sub all {
-  Mojo::Collection->new($singleton->all_processes, $singleton->all_orphans)
-    ->flatten;
-}
+sub all { c($singleton->all_processes, $singleton->all_orphans)->flatten }
+sub all_orphans { c(values %{$singleton->orphans}) }
 
 sub all_processes {
-  Mojo::Collection->new(values %{$singleton->process_table})
-    ->map(sub { ${$_} });
+  c(values %{$singleton->process_table})->map(sub { ${$_} });
 }
-sub all_orphans { Mojo::Collection->new(values %{$singleton->orphans}) }
 
 sub contains {
   my $pid = pop;
@@ -423,7 +419,15 @@ Returns a L<Mojo::Collection> of L<Mojo::IOLoop::ReadWriteProcess> that belongs 
     $collection->size;
 
 Returns a L<Mojo::Collection> of L<Mojo::IOLoop::ReadWriteProcess> of orphaned processes that belongs to a session.
-They are automatically turned into a L<Mojo::IOLoop::ReadWriteProcess>, even if processes were created by C<fork()>.
+They are automatically turned into a L<Mojo::IOLoop::ReadWriteProcess>, also if processes were created by C<fork()>.
+
+=head2 all_processes()
+
+    use Mojo::IOLoop::ReadWriteProcess::Session qw(session);
+    my $collection = session->all_processes;
+    $collection->size;
+
+Returns a L<Mojo::Collection> of all L<Mojo::IOLoop::ReadWriteProcess> known processes that belongs to a session.
 
 =head2 contains()
 
