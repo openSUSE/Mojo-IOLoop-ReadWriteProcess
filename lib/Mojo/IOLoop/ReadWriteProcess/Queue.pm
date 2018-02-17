@@ -7,38 +7,37 @@ use Mojo::IOLoop::ReadWriteProcess::Session;
 has queue => sub { Mojo::IOLoop::ReadWriteProcess::Pool->new() };
 has pool  => sub { Mojo::IOLoop::ReadWriteProcess::Pool->new() };
 
-has auto_start_add => 0;
-has auto_start     => 1;
+has auto_start => 0;
 
 sub _dequeue {
   my $self    = shift;
   my $process = shift;
 
-  $self->pool->remove($process);
+  $self->pool($self->pool->grep(sub { $process ne $_ }));
   shift @{$self->queue}
-    if ($self->queue->first && $self->add($self->queue->first));
-
-  $self->pool->last->start if $self->auto_start;
+    if ($self->queue->first && $self->pool->add($self->queue->first));
 }
 
-sub exhausted { shift->pool->size == 0 }
+sub exhausted { $_[0]->pool->size == 0 && shift->queue->size == 0 }
 
 sub consume {
-  my $p = shift;
-  until ($p->exhausted) {
-    $p->start;
-    $p->wait;
+  my $self = shift;
+
+  until ($self->exhausted) {
+    $self->pool->each(
+      sub {
+        return unless $_;
+        $_->once(stop => sub { $self->_dequeue($_) });
+        $_->start unless $_->is_running;
+        $_->wait;
+      });
   }
 }
 
 sub add {
   my $self = shift;
-  return $self->queue->add(@_) unless $self->pool->add(@_);
-
-  my $i = $self->pool->size - 1;
-  $self->pool->last->once(stop => sub { $self->_dequeue($i) });
-  $self->pool->last->start if $self->auto_start_add == 1;
-  $self->pool->last;
+  $self->pool->add(@_) // $self->queue->add(@_);
+  $self->pool->last->start if $self->auto_start == 1;
 }
 
 sub AUTOLOAD {
@@ -74,6 +73,7 @@ Mojo::IOLoop::ReadWriteProcess::Queue - Queue for Mojo::IOLoop::ReadWriteProcess
     $q->pool->maximum_processes(2); # Max 2 processes in parallel
     $q->queue->maximum_processes(10); # Max queue is 10
 
+    # With auto_start enabled, they are started as you add them
     $q->add( process sub { return 42 } ) for 1..7;
 
     # Subscribe to all "stop" events in the pool
