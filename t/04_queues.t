@@ -13,7 +13,7 @@ use Mojo::IOLoop::ReadWriteProcess::Session;
 
 subtest queues => sub {
   my $q = queue;
-  $q->pool->maximum_processes(2);
+  $q->pool->maximum_processes(3);
   $q->queue->maximum_processes(800);
 
   my $proc = 10;
@@ -32,8 +32,8 @@ subtest queues => sub {
       $output{shift->return_status}++;
     });
   is $q->queue->size,             $proc - $q->pool->maximum_processes;
-  is $q->pool->size,              2;
-  is $q->pool->maximum_processes, 2;
+  is $q->pool->size,              3;
+  is $q->pool->maximum_processes, 3;
   $q->consume;
   is $fired, $proc;
   is $q->queue->size, 0;
@@ -46,8 +46,8 @@ subtest queues => sub {
   }
 };
 
-subtest not_autostart_queues => sub {
-  my $q = queue(auto_start => 0);
+subtest test_2 => sub {
+  my $q = queue;
   $q->pool->maximum_processes(2);
   $q->queue->maximum_processes(800);
 
@@ -116,9 +116,9 @@ subtest atomic_queues => sub {
   }
 };
 
-subtest 'auto starting queues on add' => sub {
+subtest test_3 => sub {
   my $q = queue();
-  $q->pool->maximum_processes(2);
+  $q->pool->maximum_processes(4);
   $q->queue->maximum_processes(100000);
   my $proc = 10;
   my $fired;
@@ -138,7 +138,7 @@ subtest 'auto starting queues on add' => sub {
     $i++;
   }
 
-  is $q->pool->maximum_processes, 2;
+  is $q->pool->maximum_processes, 4;
   $q->consume;
   is $q->queue->size, 0;
   is $q->pool->size,  0;

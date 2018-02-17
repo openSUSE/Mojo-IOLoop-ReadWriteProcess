@@ -7,8 +7,6 @@ use Mojo::IOLoop::ReadWriteProcess::Session;
 has queue => sub { Mojo::IOLoop::ReadWriteProcess::Pool->new() };
 has pool  => sub { Mojo::IOLoop::ReadWriteProcess::Pool->new() };
 
-has auto_start => 0;
-
 sub _dequeue {
   my $self    = shift;
   my $process = shift;
@@ -28,8 +26,7 @@ sub consume {
       sub {
         return unless $_;
         $_->once(stop => sub { $self->_dequeue($_) });
-        $_->start unless $_->is_running;
-        $_->wait;
+        $_->start->wait;
       });
   }
 }
@@ -37,7 +34,6 @@ sub consume {
 sub add {
   my $self = shift;
   $self->pool->add(@_) // $self->queue->add(@_);
-  $self->pool->last->start if $self->auto_start == 1;
 }
 
 sub AUTOLOAD {
@@ -68,12 +64,11 @@ Mojo::IOLoop::ReadWriteProcess::Queue - Queue for Mojo::IOLoop::ReadWriteProcess
     my $n_proc = 20;
     my $fired;
 
-    my $q = queue auto_start => 1;
+    my $q = queue;
 
     $q->pool->maximum_processes(2); # Max 2 processes in parallel
     $q->queue->maximum_processes(10); # Max queue is 10
 
-    # With auto_start enabled, they are started as you add them
     $q->add( process sub { return 42 } ) for 1..7;
 
     # Subscribe to all "stop" events in the pool
