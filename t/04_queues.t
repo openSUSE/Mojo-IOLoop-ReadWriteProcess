@@ -21,7 +21,7 @@ subtest queues => sub {
 
   my $i = 1;
   for (1 .. $proc) {
-    $q->add(process(sub { shift; sleep 2; return shift() })->args($i));
+    $q->add(process(sub { shift; return shift() })->args($i));
     $i++;
   }
 
@@ -56,7 +56,7 @@ subtest not_autostart_queues => sub {
 
   my $i = 1;
   for (1 .. $proc) {
-    $q->add(process(sub { shift; sleep 2; return shift() })->args($i));
+    $q->add(process(sub { shift; return shift() })->args($i));
     $i++;
   }
 
@@ -91,7 +91,7 @@ subtest atomic_queues => sub {
 
   my $i = 1;
   for (1 .. $proc) {
-    $q->add(process(sub { shift; sleep 2; return shift() })->args($i));
+    $q->add(process(sub { shift; return shift() })->args($i));
     $i++;
   }
 
@@ -117,7 +117,7 @@ subtest atomic_queues => sub {
 };
 
 subtest 'auto starting queues on add' => sub {
-  my $q = queue(auto_start_add => 1);
+  my $q = queue();
   $q->pool->maximum_processes(2);
   $q->queue->maximum_processes(100000);
   my $proc = 10;
@@ -128,7 +128,7 @@ subtest 'auto starting queues on add' => sub {
 # Started as long as resources allows (maximum_processes of the main pool)
 # That requires then to subscribe for each process event's separately (manually)
   for (1 .. $proc) {
-    my $p = process(sub { shift; sleep 2; return shift() + 42 })->args($i);
+    my $p = process(sub { shift; return shift() + 42 })->args($i);
     $p->once(
       stop => sub {
         $fired++;

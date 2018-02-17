@@ -26,13 +26,11 @@ subtest autodetect => sub {
   my $orphan
     = process(sub { print "Hello from second process\n"; sleep 1 })->start;
   my $p = process(
-    code => sub {
+    sub {
       print "Hello from master process\n";
       sleep 2;
       return 2;
-    },
-    detect_subprocess => 1
-  );
+    });
   my $orphans = 0;
   $session->on(collected        => sub { $fired++ });
   $session->on(collected_orphan => sub { $orphans++ });
@@ -67,7 +65,6 @@ subtest autodetect_fork => sub {
   my $fired;
   my $status;
   local $SIG{CHLD};
-
 
   $session->reset;
   $session->on(collected        => sub { $fired++ });

@@ -35,7 +35,6 @@ for (1 .. $proc) {
       serialize => 1,
       code      => sub {
         shift;
-        sleep 1;
         return {$_[0] => $_[0]};
       }
     )->args($i));
