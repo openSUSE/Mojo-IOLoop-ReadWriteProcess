@@ -493,7 +493,7 @@ sub stop {
 
 sub _shutdown {
   my $self = shift;
-  waitpid $self->pid, 0 if pop;
+  waitpid $self->pid, 0 if pop && $self->pid;
   $self->emit('collect_status') if !defined $self->_status;
   $self->_clean_pidfile;
   $self->emit('process_error', $self->error)

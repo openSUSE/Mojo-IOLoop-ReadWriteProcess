@@ -30,4 +30,36 @@ subtest register => sub {
   is $p->{foo}, 'kaboom';
 };
 
+
+subtest unregister => sub {
+  session->clean();
+
+  my $p = process(sub { });
+  session->register(1 => $p);
+
+  is_deeply ${session->process_table()->{1}}, $p, 'Equal'
+    or die diag explain session();
+
+  session->unregister(1);
+  is session->all()->size, 0;
+  is session->resolve(1), undef;
+
+  session->register(1 => $p);
+  is session->all()->size, 1;
+
+  session->clean();
+  is session->all()->size, 0;
+};
+
+subtest disable => sub {
+  local $SIG{CHLD} = 'DEFAULT';
+
+  session->enable();
+  is session->handler, 'DEFAULT', 'previous handler saved';
+
+  isnt $SIG{CHLD}, 'DEFAULT', 'Handler has changed';
+  session->disable();
+  is $SIG{CHLD}, 'DEFAULT', 'handler restored';
+};
+
 done_testing();
