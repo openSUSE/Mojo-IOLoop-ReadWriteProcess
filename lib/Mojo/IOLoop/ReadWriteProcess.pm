@@ -5,37 +5,34 @@ our $VERSION = '0.12';
 use Mojo::Base 'Mojo::EventEmitter';
 use Mojo::File 'path';
 use Mojo::Util qw(b64_decode b64_encode);
+use Mojo::IOLoop::Stream;
+
 use Mojo::IOLoop::ReadWriteProcess::Exception;
 use Mojo::IOLoop::ReadWriteProcess::Pool;
 use Mojo::IOLoop::ReadWriteProcess::Queue;
+use Mojo::IOLoop::ReadWriteProcess::Session;
 
-our @EXPORT_OK = qw(parallel batch process pool queue);
-use Exporter 'import';
 use B::Deparse;
 use Carp 'confess';
 use IO::Handle;
 use IO::Pipe;
 use IO::Select;
 use IPC::Open3;
-use POSIX qw( :sys_wait_h :signal_h );
 use Symbol 'gensym';
 use Storable;
-use Mojo::IOLoop::Stream;
-use Config;
+use POSIX qw( :sys_wait_h :signal_h );
+our @EXPORT_OK = qw(parallel batch process pool queue);
+use Exporter 'import';
 
 use constant DEBUG => $ENV{MOJO_PROCESS_DEBUG};
-
-# See https://github.com/torvalds/linux/blob/master/include/uapi/linux/prctl.h
-use constant PR_SET_CHILD_SUBREAPER => 36;
-use constant PR_GET_CHILD_SUBREAPER => 37;
 
 has [
   qw(kill_sleeptime sleeptime_during_kill),
   qw(separate_err autoflush set_pipes verbose),
-  qw(internal_pipes collect_status)
+  qw(internal_pipes)
 ] => 1;
 
-has [qw(blocking_stop serialize detect_subprocess subreaper)] => 0;
+has [qw(blocking_stop serialize)] => 0;
 
 has [
   qw(execute code process_id pidfile return_status),
@@ -48,8 +45,8 @@ has max_kill_attempts => 5;
 has args  => sub { [] };
 has error => sub { Mojo::Collection->new };
 
-has subprocess => sub { Mojo::Collection->new };
-has ioloop     => sub { Mojo::IOLoop->singleton };
+has ioloop  => sub { Mojo::IOLoop->singleton };
+has session => sub { Mojo::IOLoop::ReadWriteProcess::Session->singleton };
 
 has _deparse => sub { B::Deparse->new }
   if DEBUG;
@@ -95,34 +92,10 @@ sub _diag {
   print STDERR ">> ${caller}(): @messages\n" if (DEBUG || $self->verbose);
 }
 
-sub _set_child_handler {
-  my $self     = shift;
-  my $sigset   = POSIX::SigSet->new;
-  my $blockset = POSIX::SigSet->new(SIGCHLD);
-
-  sigprocmask(SIG_BLOCK, $blockset, $sigset);
-  $SIG{CHLD} = sub {
-    local ($!, $?);
-    $self->emit('SIG_CHLD');
-    return unless $self->collect_status;
-    while ((my $pid = waitpid(-1, WNOHANG)) > 0) {
-      $self->emit('collect_status' => $pid => $? => $!);
-    }
-  };
-  sigprocmask(SIG_SETMASK, $sigset);
-}
-
 sub _open_collect_status {
   my ($self, $pid, $e, $errno) = @_;
 
   return unless $self;
-  return push(
-    @{$self->subprocess},
-    $self->new->pid($pid)->_open_collect_status($pid => $e => $errno))
-    && $self->emit(new_subprocess => $self->subprocess->last)
-    if $self->detect_subprocess
-    && defined $pid
-    && $pid != $self->process_id;
 
   $self->_status($? // $e);
   $self->_diag("Forked code Process Exit status: " . $self->exit_status)
@@ -138,7 +111,7 @@ sub _open {
   my ($self, @args) = @_;
   $self->_diag('Execute: ' . (join ', ', map { "'$_'" } @args)) if DEBUG;
 
-  $self->_set_child_handler;
+  $self->session->enable;
 
   my ($wtr, $rdr, $err);
   $err = gensym;
@@ -175,13 +148,6 @@ sub _fork_collect_status {
   my ($self, $pid, $e, $errno) = @_;
 
   return unless $self;
-  return push(
-    @{$self->subprocess},
-    $self->new->pid($pid)->_fork_collect_status($pid => $e => $errno))
-    && $self->emit(new_subprocess => $self->subprocess->last)
-    if $self->detect_subprocess
-    && defined $pid
-    && $pid != $self->process_id;
 
   my $return_reader;
   my $internal_err_reader;
@@ -344,7 +310,7 @@ sub _fork {
   }
   $self->process_id($pid);
 
-  $self->_set_child_handler;
+  $self->session->enable;
 
   return $self unless $self->set_pipes();
 
@@ -460,7 +426,7 @@ sub start {
       : $self->args
     : ();
 
-  $self->enable_subreaper if $self->subreaper;
+  $self->session->enable_subreaper if $self->subreaper;
 
   if ($self->code) {
     $self->_fork($self->code, @args);
@@ -471,22 +437,13 @@ sub start {
 
   $self->write_pidfile;
   $self->emit('start');
+  $self->session->register($self->pid() => $self);
 
   return $self;
 }
 
-sub disable_subreaper {
-  $_[0]->subreaper(1) unless $_[0]->_prctl(PR_SET_CHILD_SUBREAPER, 0) == 0;
-  $_[0];
-}
-
-sub enable_subreaper {
-  $_[0]->subreaper(0) unless $_[0]->_prctl(PR_SET_CHILD_SUBREAPER, 1) == 0;
-  $_[0];
-}
-
 sub send_signal {
-  my $self   = shift;
+  my $self = shift;
   my $signal = shift // $self->_default_kill_signal;
   return unless $self->is_running;
   $self->_diag("Sending signal '$signal' to " . $self->process_id) if DEBUG;
@@ -545,76 +502,21 @@ sub _shutdown {
   return $self->emit('stop');
 }
 
-
-sub _get_prctl_syscall {
-
-  # Courtesy of Sys::Prctl
-  confess "Only Linux is supported" unless $^O eq 'linux';
-
-  my $machine = (POSIX::uname())[4];
-  die "Could not get machine type" unless $machine;
-
-  # if we're running on an x86_64 kernel, but a 32-bit process,
-  # we need to use the i386 syscall numbers.
-  $machine = "i386" if ($machine eq "x86_64" && $Config{ptrsize} == 4);
-
-  my $prctl_call
-    = $machine
-    =~ /^i[3456]86|^blackfin|cris|frv|h8300|m32r|m68k|microblaze|mn10300|sh|s390|parisc$/
-    ? 172
-    : $machine eq "x86_64"  ? 157
-    : $machine eq "sparc64" ? 147
-    : $machine eq "ppc"     ? 171
-    : $machine eq "ia64"    ? 1170
-    : $machine eq "alpha"   ? 348
-    : $machine eq "arm"     ? 0x900000 + 172
-    : $machine eq "avr32"   ? 148
-    : $machine eq "mips"    ? 4000 + 192
-    : $machine eq "mips64"  ? 5000 + 153
-    : $machine eq "xtensa"  ? 130
-    :                         undef;
-
-  unless (defined $prctl_call) {
-    delete @INC{
-      qw<syscall.ph asm/unistd.ph bits/syscall.ph _h2ph_pre.ph
-        sys/syscall.ph>
-    };
-    my $rv = eval { require 'syscall.ph'; 1 }     ## no critic
-      or eval { require 'sys/syscall.ph'; 1 };    ## no critic
-
-    $prctl_call = eval { &SYS_prctl; };
-  }
-  _diag(undef, "prctl() $prctl_call") if DEBUG;
-
-  return $prctl_call;
-}
-
-sub _prctl {
-  my ($self, $option, $arg2, $arg3, $arg4, $arg5) = @_;
-  confess 'prctl not supported in this platform!'
-    unless defined _get_prctl_syscall;
-  local $!;
-  my $ret = syscall(
-    _get_prctl_syscall(), $option,
-    ($arg2 or 0),
-    ($arg3 or 0),
-    ($arg4 or 0),
-    ($arg5 or 0));
-
-  $self->_diag(_get_prctl_syscall(), "$option is unavailable on this platform.")
-    if $!{EINVAL};
-  $self->_diag("Error! $!") if $!;
-  return $ret;
-}
-
 # General alias
-*pid    = \&process_id;
-*died   = \&_errored;
-*failed = \&_errored;
-*diag   = \&_diag;
-*pool   = \&batch;
-*signal = \&send_signal;
-*prctl  = \&_prctl;
+*pid       = \&process_id;
+*died      = \&_errored;
+*failed    = \&_errored;
+*diag      = \&_diag;
+*pool      = \&batch;
+*signal    = \&send_signal;
+*prctl     = \&Mojo::IOLoop::ReadWriteProcess::Session::_prctl;
+*subreaper = \&Mojo::IOLoop::ReadWriteProcess::Session::subreaper;
+
+*enable_subreaper = \&Mojo::IOLoop::ReadWriteProcess::Session::enable_subreaper;
+*disable_subreaper
+  = \&Mojo::IOLoop::ReadWriteProcess::Session::disable_subreaper;
+*_get_prctl_syscall
+  = \&Mojo::IOLoop::ReadWriteProcess::Session::_get_prctl_syscall;
 
 # Aliases - write
 *write         = \&write_stdin;
@@ -741,16 +643,6 @@ Emitted when C<blocking_stop> is set and all attempts for killing the process
 in C<max_kill_attempts> have been exhausted.
 The event is emitted before attempting to kill it with SIGKILL and becoming blocking.
 
-=head2 new_subprocess
-
- $process->on(new_subprocess => sub {
-   my ($self, $new_process) = @_;
-   my $status = $new_process->exit_status;
-   ...
- });
-
-Emitted when C<detect_subprocess> is set and will be fired with the collected process.
-
 =head2 SIG_CHLD
 
  $process->on(SIG_CHLD => sub {
@@ -768,6 +660,15 @@ Emitted when we receive SIG_CHLD.
  });
 
 Emitted when the child forked process receives SIG_TERM, before exiting.
+
+=head2 collected
+
+ $process->on(collected => sub {
+   my ($self) = @_;
+   ...
+ });
+
+Emitted right after status collection.
 
 =head2 collect_status
 
@@ -834,32 +735,21 @@ Array or arrayref of options to pass by to the external binary or the code block
 
 Set it to 1 if you want to do blocking stop of the process.
 
-=head2 detect_subprocess
 
-    use Mojo::IOLoop::ReadWriteProcess qw(process);
+=head2 session
 
-    # fork as usual in the code, or either create processes and never wait for them.
-    process(sub { ... expensive operation ... } )->start();
+    use Mojo::IOLoop::ReadWriteProcess;
+    my $process = Mojo::IOLoop::ReadWriteProcess->new(sub { print "Hello" });
+    my $session = $process->session;
+    $session->enable_subreaper;
 
-    my $process = process(sub {});
-    $process->detect_subprocess(1);
-    $process->on( new_subprocess => sub { print "Not known process: ".(pop->pid)." reaped" } );
-    $process->start();
-
-    # Move other bits..
-
-    $process->wait_stop(); # Just wait on the master one (must be last one called in sequence)
-
-    my @sub_p = $process->subprocess()->to_array;
-
-Set it to 1 if you want the last started process to be master and be able to
-detect ended processes.
+Returns the current L<Mojo::IOLoop::ReadWriteProcess::Session> singleton.
 
 =head2 subreaper
 
     use Mojo::IOLoop::ReadWriteProcess;
     my $process = Mojo::IOLoop::ReadWriteProcess->new(code => sub { print "Hello ".shift() }, args => "User" );
-    $process->detect_subprocess(1)->subreaper(1)->start();
+    $process->subreaper(1)->start();
     $process->on( stop => sub { $_->disable_subreaper } );
     $process->stop();
 
@@ -868,25 +758,6 @@ detect ended processes.
 Mark the current process (not the child) as subreaper on start.
 It's on invoker behalf to disable subreaper when process stops, as it marks the current process and not the
 child.
-
-=head2 subprocess
-
-    use Mojo::IOLoop::ReadWriteProcess qw(process);
-
-    # fork as usual in the code, or either create processes and never wait for them.
-    process(sub { ... expensive operation ... } )->start();
-
-    my $process = process(sub { print "Hello"; sleep 1 });
-    $process->detect_subprocess(1);
-    $process->start();
-    $process->on( new_subprocess => sub { print "Not known process: ".(pop->pid)." reaped" } );
-    $process->wait_stop(); # Just wait on the master one (must be last one called in sequence)
-
-    my $subprocesses = $process->subprocess();
-    my $first = $subprocesses->first;
-
-Returns a L<Mojo::Collection> of L<Mojo::IOLoop::ReadWriteProcess> that contains the pid and
-the exit status of other processes that are sending a SIG_CHLD.
 
 =head2 ioloop
 
@@ -1033,20 +904,20 @@ This is used typically if you want to mark further childs as subreapers inside o
         process(sub { sleep 4; exit 0 })->start();
         process(sub { sleep 4; die })->start();
         my $manager
-          = process(sub { sleep 2 })->detect_subprocess(1)->subreaper(1)->start();
+          = process(sub { sleep 2 })->subreaper(1)->start();
         sleep 1 for (0 .. 10);
         $manager->stop;
-        return $manager->subprocess->size;
+        return $manager->session->all->size;
       });
 
-    $master_p->detect_subprocess(1);
     $master_p->subreaper(1);
-    $master_p->on(collect_status => sub { $status++ });
 
+    $master_p->on(collected => sub { $status++ });
+
+    # On start we setup the current process as subreaper
+    # So it's up on us to disable it after process is done.
     $master_p->on(stop => sub { shift()->disable_subreaper });
     $master_p->start();
-
-    ....
 
 =head2 disable_subreaper()
 
