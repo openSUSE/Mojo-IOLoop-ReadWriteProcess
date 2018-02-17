@@ -35,7 +35,6 @@ sub disable {
 }
 
 sub enable {
-  my $self     = shift;
   my $sigset   = POSIX::SigSet->new;
   my $blockset = POSIX::SigSet->new(SIGCHLD);
   $singleton->handler($SIG{CHLD});
@@ -293,9 +292,10 @@ the following new ones.
 
 =head2 subreaper
 
-    use Mojo::IOLoop::ReadWriteProcess;
+    use Mojo::IOLoop::ReadWriteProcess::Session qw(session);
+    session->enable_subreaper;
     my $process = Mojo::IOLoop::ReadWriteProcess->new(code => sub { print "Hello ".shift() }, args => "User" );
-    $process->detect_subprocess(1)->subreaper(1)->start();
+    $process->start();
     $process->on( stop => sub { $_->disable_subreaper } );
     $process->stop();
 
@@ -342,9 +342,14 @@ Disables the SIG_CHLD handler and reset with the previous one.
 
     use Mojo::IOLoop::ReadWriteProcess qw(process);
     my $p = process()->enable_subreaper;
+    # or
+    use Mojo::IOLoop::ReadWriteProcess::Session qw(session);
+    session->enable_subreaper;
 
 Mark the current process (not the child) as subreaper.
 This is used typically if you want to mark further childs as subreapers inside other forks.
+
+    use Mojo::IOLoop::ReadWriteProcess::Session qw(session);
 
     my $master_p = process(
       sub {
@@ -360,25 +365,24 @@ This is used typically if you want to mark further childs as subreapers inside o
         process(sub { sleep 4; exit 0 })->start();
         process(sub { sleep 4; die })->start();
         my $manager
-          = process(sub { sleep 2 })->detect_subprocess(1)->subreaper(1)->start();
+          = process(sub { sleep 2 })->subreaper(1)->start();
         sleep 1 for (0 .. 10);
         $manager->stop;
         return $manager->subprocess->size;
       });
 
-    $master_p->detect_subprocess(1);
     $master_p->subreaper(1);
     $master_p->on(collect_status => sub { $status++ });
 
     $master_p->on(stop => sub { shift()->disable_subreaper });
     $master_p->start();
-
+    session->all->size();
     ....
 
 =head2 disable_subreaper()
 
     use Mojo::IOLoop::ReadWriteProcess qw(process);
-    my $p = process()->session->disable_subreaper;
+    my $p = process()->disable_subreaper;
 
 Unset the current process as subreaper.
 
