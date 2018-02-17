@@ -9,6 +9,9 @@ use Mojo::File qw(tempfile path);
 use lib ("$FindBin::Bin/lib", "../lib", "lib");
 use Mojo::IOLoop::ReadWriteProcess::Test::Utils qw(attempt);
 use Mojo::IOLoop::ReadWriteProcess qw(process);
+use Mojo::IOLoop::ReadWriteProcess::Session;
+my $session = Mojo::IOLoop::ReadWriteProcess::Session->singleton;
+
 
 subtest autodetect => sub {
   local $SIG{CHLD};
@@ -30,8 +33,10 @@ subtest autodetect => sub {
     },
     detect_subprocess => 1
   );
+  my $orphans = 0;
+  $session->on(collected        => sub { $fired++ });
+  $session->on(collected_orphan => sub { $orphans++ });
 
-  $p->on(new_subprocess => sub { $fired++ });
   $p->on(collect_status => sub { $status++ });
 
   $p->start();
@@ -39,21 +44,23 @@ subtest autodetect => sub {
   # If we just sleep and then exit, we won't be able to catch signals
   attempt {
     attempts  => 10,
-    condition => sub { defined $status && $status == 3 },
+    condition => sub { defined $fired && $fired == 3 },
     cb => sub { sleep 1 }
   };
 
   $p->stop;
-  is $status, 3, 'Status fired 3 times';
-  is $p->subprocess->size, 2, 'detection works' or die diag explain $p;
+  is $status, 1, 'Status fired once';
+  is $session->all_processes->size, 3, 'detection works' or die diag explain $p;
+  ok $session->contains($orphan->pid), 'Orphan collected'
+    or die diag explain $p->session->all;
+  ok $session->contains($orphan2->pid), 'Orphan collected';
+  ok !$session->contains(99999999), 'Session contain works as expected';
 
-  is $p->subprocess->grep(sub { $_->pid eq $orphan->pid })->first->pid,
-    $orphan->pid, 'Orphan collected';
-  is $p->subprocess->grep(sub { $_->pid eq $orphan2->pid })->first->pid,
-    $orphan2->pid, 'Orphan2 collected';
+  is $fired,   3, 'New subprocess event fired';
+  is $orphans, 0, 'New subprocess event fired';
 
-  is $fired, 2, 'New subprocess event fired';
   is $p->return_status, 2, 'Got exit status from master';
+  $p->session->reset();
 };
 
 subtest autodetect_fork => sub {
@@ -61,10 +68,12 @@ subtest autodetect_fork => sub {
   my $status;
   local $SIG{CHLD};
 
-  my $master_p = process(sub { });
-  $master_p->detect_subprocess(1);
-  $master_p->on(new_subprocess => sub { $fired++ });
-  $master_p->on(collect_status => sub { $status++ });
+
+  $session->reset;
+  $session->on(collected        => sub { $fired++ });
+  $session->on(collected_orphan => sub { $status++ });
+  my $master_p = process(sub { exit 20 });
+
   $master_p->start();
 
   # Fork, and die after a bit
@@ -90,31 +99,36 @@ subtest autodetect_fork => sub {
   # If we just sleep and then exit, we won't be able to catch signals
   attempt {
     attempts  => 20,
-    condition => sub { defined $status && $status == 7 },
+    condition => sub { defined $status && $status == 6 },
     cb => sub { sleep 1 }
   };
 
   $master_p->stop;
-  is $status, 7, 'Status fired 7 times';
-  is $fired,  6, 'Status fired 7 times';
 
-  is $master_p->subprocess->size, 6, 'detection works'
-    or die diag explain $master_p;
+  is $master_p->exit_status, 20, 'Correct exit status from master process';
+  is $status, 6, 'Status fired 6 times';
+  is $fired,  1, 'Status fired 1 times';
 
-  $master_p->subprocess->each(
+  is $session->all->size, 7, 'detection works' or die diag explain $master_p;
+
+  $session->all_orphans->each(
     sub { is $_->exit_status, 110, 'Correct status from process ' . $_->pid });
+
 };
 
 
 subtest subreaper => sub {
   my $fired;
   my $status;
+  my $orphans;
   local $SIG{CHLD};
 
   my $sys;
-  eval { $sys = Mojo::IOLoop::ReadWriteProcess::_get_prctl_syscall; };
-  plan skip_all => "You do not seem to have subreaper capabilities"
+  eval { $sys = Mojo::IOLoop::ReadWriteProcess::_get_prctl_syscall };
+  plan skip_all => "$@ : You do not seem to have subreaper capabilities"
     if ($@ || !defined $sys);
+
+  $session->reset;
 
   my $master_p = process(
     sub {
@@ -151,41 +165,43 @@ subtest subreaper => sub {
       }
     });
 
-  $master_p->detect_subprocess(1);
   $master_p->subreaper(1);
-  $master_p->on(new_subprocess => sub { $fired++ });
-  $master_p->on(collect_status => sub { $status++ });
+  $session->on(collected        => sub { $fired++ });
+  $session->on(collected_orphan => sub { $orphans++ });
 
-  # On start we setup the current process as subreaper
-  # So it's up on us to disable it after process is done.
-  $master_p->on(stop => sub { shift()->disable_subreaper });
+# On start we setup the current process as subreaper
+# So it's up on us to disable it after process is done. We can do that also when master process stops:
+# $master_p->on(stop => sub { shift()->disable_subreaper });
   $master_p->start();
 
   # If we just sleep and then exit, we won't be able to catch signals
   attempt {
     attempts  => 20,
-    condition => sub { defined $status && $status == 8 },
+    condition => sub { defined $orphans && $orphans == 7 },
     cb => sub { sleep 1 }
   };
 
   $master_p->stop();
-  is $status, 8, 'collect_status fired 8 times';
-  is $fired,  7, 'new_subprocess fired 7 times';
+  is $fired,   1, 'collect_status fired 8 times';
+  is $orphans, 7, 'new_subprocess fired 7 times';
 
-  is $master_p->subprocess->size, 7, 'detection works'
+  is $session->all_orphans->size, 7, 'detection works'
     or die diag explain $master_p;
-  $master_p->subprocess->each(
+  $session->all_orphans->each(
     sub { is $_->exit_status, 120, 'Correct status from process ' . $_->pid });
 
+  $session->disable_subreaper;
 };
 
 subtest subreaper_bash => sub {
   my $fired;
   my $status;
+  my $orphans;
   local $SIG{CHLD};
+  $session->reset;
 
   my $sys;
-  eval { $sys = Mojo::IOLoop::ReadWriteProcess::_get_prctl_syscall; };
+  eval { $sys = Mojo::IOLoop::ReadWriteProcess::_get_prctl_syscall };
   plan skip_all => "You do not seem to have subreaper capabilities"
     if ($@ || !defined $sys);
   my $test_script = "$FindBin::Bin/data/subreaper/master.sh";
@@ -201,11 +217,9 @@ subtest subreaper_bash => sub {
       exec($test_script);
     });
 
-  $master_p->detect_subprocess(1);
   $master_p->subreaper(1);
-  $master_p->on(new_subprocess => sub { $fired++ });
-  $master_p->on(collect_status => sub { $status++ });
-  $master_p->on(stop           => sub { shift()->disable_subreaper });
+  $session->on(collected        => sub { $fired++ });
+  $session->on(collected_orphan => sub { $orphans++ });
   $master_p->start();
   is $master_p->subreaper, 1,
     'We are subreaper';    # Goes to 0 if attempt was unsuccessful
@@ -213,16 +227,18 @@ subtest subreaper_bash => sub {
   # If we just sleep and then exit, we won't be able to catch signals
   attempt {
     attempts  => 20,
-    condition => sub { defined $status && $status == 8 },
+    condition => sub { defined $orphans && $orphans == 7 },
     cb => sub { sleep 1 }
   };
 
   $master_p->stop();
-  is $status, 8, 'collect_status fired 8 times';
-  is $fired,  7, 'new_subprocess fired 7 times';
+  is $fired,   1, 'collect_status fired 8 times';
+  is $orphans, 7, 'new_subprocess fired 7 times';
 
-  is $master_p->subprocess->size, 7, 'detection works'
+  is $session->all_orphans->size, 7, 'detection works'
     or die diag explain $master_p;
+  $session->disable_subreaper;
+
 };
 
 
@@ -230,9 +246,10 @@ subtest subreaper_bash_execute => sub {
   my $fired;
   my $status;
   local $SIG{CHLD};
+  $session->reset;
 
   my $sys;
-  eval { $sys = Mojo::IOLoop::ReadWriteProcess::_get_prctl_syscall; };
+  eval { $sys = Mojo::IOLoop::ReadWriteProcess::_get_prctl_syscall };
   plan skip_all => "You do not seem to have subreaper capabilities"
     if ($@ || !defined $sys);
   my $test_script = "$FindBin::Bin/data/subreaper/master.sh";
@@ -246,26 +263,26 @@ subtest subreaper_bash_execute => sub {
 
   my $master_p
     = process(execute => $test_script, detect_subprocess => 1, subreaper => 1);
-
-  $master_p->on(new_subprocess => sub { $fired++ });
-  $master_p->on(collect_status => sub { $status++ });
-  $master_p->on(stop           => sub { shift()->disable_subreaper });
+  my $orphans;
+  $session->on(collected        => sub { $status++ });
+  $session->on(collected_orphan => sub { $orphans++ });
   $master_p->start();
   is $master_p->subreaper, 1, 'We are subreaper';
 
   # If we just sleep and then exit, we won't be able to catch signals
   attempt {
     attempts  => 20,
-    condition => sub { defined $status && $status == 8 },
+    condition => sub { defined $orphans && $orphans == 7 },
     cb => sub { sleep 1 }
   };
 
   $master_p->stop();
-  is $status, 8, 'collect_status fired 8 times';
-  is $fired,  7, 'new_subprocess fired 7 times';
+  is $status,  1, 'collect_status fired 1 times';
+  is $orphans, 7, 'new_subprocess fired 7 times';
 
-  is $master_p->subprocess->size, 7, 'detection works'
+  is $session->all_orphans->size, 7, 'detection works'
     or die diag explain $master_p;
+  $session->disable_subreaper;
 };
 
 
@@ -273,9 +290,10 @@ subtest manager => sub {
   my $fired;
   my $status;
   local $SIG{CHLD};
+  $session->reset;
 
   my $sys;
-  eval { $sys = Mojo::IOLoop::ReadWriteProcess::_get_prctl_syscall; };
+  eval { $sys = Mojo::IOLoop::ReadWriteProcess::_get_prctl_syscall };
   plan skip_all => "You do not seem to have subreaper capabilities"
     if ($@ || !defined $sys);
 
@@ -292,16 +310,15 @@ subtest manager => sub {
         })->start();
       process(sub { sleep 4; exit 0 })->start();
       process(sub { sleep 4; die })->start();
-      my $manager
-        = process(sub { sleep 2 })->detect_subprocess(1)->subreaper(1)->start();
+      my $manager = process(sub { sleep 2 })->subreaper(1)->start();
       sleep 1 for (0 .. 10);
       $manager->stop;
-      return $manager->subprocess->size;
+      return $manager->session->all->size;
     });
 
-  $master_p->detect_subprocess(1);
   $master_p->subreaper(1);
-  $master_p->on(collect_status => sub { $status++ });
+
+  $master_p->on(collected => sub { $status++ });
 
   # On start we setup the current process as subreaper
   # So it's up on us to disable it after process is done.
@@ -318,13 +335,15 @@ subtest manager => sub {
   $master_p->stop();
   is $status, 1, 'collect_status fired 1 times';
 
-  is $master_p->subprocess->size, 0, 'detection works'
+  is $session->all_orphans->size, 0, 'isolation works'
     or die diag explain $master_p;
 
-
-  is $master_p->return_status, 5,
-'detection works, 5 processes in total finished or died under manager process'
+  is $session->all->size, 1, 'isolation works' or die diag explain $master_p;
+  is $master_p->return_status, 6,
+    'detection works, 6 processes in total finished or died'
     or die diag explain $master_p;
+  $session->disable_subreaper;
+
 };
 
 
@@ -332,9 +351,10 @@ subtest subreaper_bash_roulette => sub {
   my $fired;
   my $status;
   local $SIG{CHLD};
+  $session->reset;
 
   my $sys;
-  eval { $sys = Mojo::IOLoop::ReadWriteProcess::_get_prctl_syscall; };
+  eval { $sys = Mojo::IOLoop::ReadWriteProcess::_get_prctl_syscall };
   plan skip_all => "You do not seem to have subreaper capabilities"
     if ($@ || !defined $sys);
   my $test_script = "$FindBin::Bin/data/subreaper/roulette.sh";
@@ -348,12 +368,10 @@ subtest subreaper_bash_roulette => sub {
 # In this tests the bash scripts are going to create child processes and then die immediately
 
   my $master_p = process(execute => $test_script);
-
-  $master_p->detect_subprocess(1);
   $master_p->subreaper(1);
-  $master_p->on(new_subprocess => sub { $fired++ });
-  $master_p->on(collect_status => sub { $status++ });
-  $master_p->on(stop           => sub { shift()->disable_subreaper });
+  my $orphans;
+  $session->on(collected        => sub { $fired++ });
+  $session->on(collected_orphan => sub { $orphans++ });
   $master_p->start();
   is $master_p->subreaper, 1,
     'We are subreaper';    # Goes to 0 if attempt was unsuccessful
@@ -361,17 +379,18 @@ subtest subreaper_bash_roulette => sub {
   # If we just sleep and then exit, we won't be able to catch signals
   attempt {
     attempts  => 20,
-    condition => sub { defined $status && $status == 9 },
+    condition => sub { defined $orphans && $orphans == 8 },
     cb => sub { sleep 1 }
   };
 
   $master_p->stop();
-  is $status, 9, 'collect_status fired 8 times';
-  is $fired,  8, 'new_subprocess fired 7 times';
+  is $fired,   1, 'collect_status fired 8 times';
+  is $orphans, 8, 'new_subprocess fired 7 times';
 
-  is $master_p->subprocess->size, 8, 'detection works'
+  is $session->all_orphans->size, 8, 'detection works'
     or die diag explain $master_p;
   is $master_p->exit_status, '1', 'Correct master process exit status';
+  $session->disable_subreaper;
 };
 
 
