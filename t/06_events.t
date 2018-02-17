@@ -8,6 +8,7 @@ use FindBin;
 use Mojo::File qw(tempfile path);
 use lib ("$FindBin::Bin/lib", "../lib", "lib");
 use Mojo::IOLoop::ReadWriteProcess qw(process);
+use Mojo::IOLoop::ReadWriteProcess::Session;
 
 subtest SIG_CHLD => sub {
   my $test_script = "$FindBin::Bin/data/process_check.sh";
@@ -21,16 +22,12 @@ subtest SIG_CHLD => sub {
   my $collect;
 
 # In case of overriding of standard behavior.
-# XXX: Flaky tests, re-elaboration is needed
   my $p = process(code => sub { print "Hello\n" }, collect_status => 0);
   $p->on(collect_status => sub { $collect++ });
   $p->on(
     SIG_CHLD => sub {
       my $self = shift;
       $reached++;
-      while ((my $pid = waitpid(-1, WNOHANG)) > 0) {
-        $self->emit('collect_status' => $pid);
-      }
     });
 
   $p->start;
@@ -46,9 +43,6 @@ subtest SIG_CHLD => sub {
     SIG_CHLD => sub {
       my $self = shift;
       $reached++;
-      while ((my $pid = waitpid(-1, WNOHANG)) > 0) {
-        $self->emit('collect_status' => $pid);
-      }
     });
 
   $p2->start;
@@ -61,11 +55,13 @@ subtest SIG_CHLD => sub {
 subtest collect_status => sub {
   my $collect;
   my $sigcld;
-  my $p = process(code => sub { print "Hello\n" }, collect_status => 0);
+  my $p = process(code => sub { print "Hello\n" });
+  $p->session->collect_status(0);
   $p->on(collect_status => sub { $collect++ });
-  $p->on(
+  $p->session->on(
     SIG_CHLD => sub {
       $sigcld++;
+      waitpid $p->pid, 0;
     });
   $p->start;
   sleep 1 until $p->is_running;
@@ -74,5 +70,8 @@ subtest collect_status => sub {
   is $sigcld,  1,     'SIG_CHLD fired';
 
 };
+
+is(Mojo::IOLoop::ReadWriteProcess::Session->singleton->all_orphans->size, 0);
+is(Mojo::IOLoop::ReadWriteProcess::Session->singleton->all->size,         3);
 
 done_testing();
