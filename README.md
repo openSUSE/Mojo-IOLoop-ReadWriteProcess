@@ -94,16 +94,6 @@ Emitted when `blocking_stop` is set and all attempts for killing the process
 in `max_kill_attempts` have been exhausted.
 The event is emitted before attempting to kill it with SIGKILL and becoming blocking.
 
-## new\_subprocess
-
-    $process->on(new_subprocess => sub {
-      my ($self, $new_process) = @_;
-      my $status = $new_process->exit_status;
-      ...
-    });
-
-Emitted when `detect_subprocess` is set and will be fired with the collected process.
-
 ## SIG\_CHLD
 
     $process->on(SIG_CHLD => sub {
@@ -121,6 +111,15 @@ Emitted when we receive SIG\_CHLD.
     });
 
 Emitted when the child forked process receives SIG\_TERM, before exiting.
+
+## collected
+
+    $process->on(collected => sub {
+      my ($self) = @_;
+      ...
+    });
+
+Emitted right after status collection.
 
 ## collect\_status
 
@@ -187,32 +186,20 @@ Array or arrayref of options to pass by to the external binary or the code block
 
 Set it to 1 if you want to do blocking stop of the process.
 
-## detect\_subprocess
+## session
 
-    use Mojo::IOLoop::ReadWriteProcess qw(process);
+    use Mojo::IOLoop::ReadWriteProcess;
+    my $process = Mojo::IOLoop::ReadWriteProcess->new(sub { print "Hello" });
+    my $session = $process->session;
+    $session->enable_subreaper;
 
-    # fork as usual in the code, or either create processes and never wait for them.
-    process(sub { ... expensive operation ... } )->start();
-
-    my $process = process(sub {});
-    $process->detect_subprocess(1);
-    $process->on( new_subprocess => sub { print "Not known process: ".(pop->pid)." reaped" } );
-    $process->start();
-
-    # Move other bits..
-
-    $process->wait_stop(); # Just wait on the master one (must be last one called in sequence)
-
-    my @sub_p = $process->subprocess()->to_array;
-
-Set it to 1 if you want the last started process to be master and be able to
-detect ended processes.
+Returns the current [Mojo::IOLoop::ReadWriteProcess::Session](https://metacpan.org/pod/Mojo::IOLoop::ReadWriteProcess::Session) singleton.
 
 ## subreaper
 
     use Mojo::IOLoop::ReadWriteProcess;
     my $process = Mojo::IOLoop::ReadWriteProcess->new(code => sub { print "Hello ".shift() }, args => "User" );
-    $process->detect_subprocess(1)->subreaper(1)->start();
+    $process->subreaper(1)->start();
     $process->on( stop => sub { $_->disable_subreaper } );
     $process->stop();
 
@@ -221,25 +208,6 @@ detect ended processes.
 Mark the current process (not the child) as subreaper on start.
 It's on invoker behalf to disable subreaper when process stops, as it marks the current process and not the
 child.
-
-## subprocess
-
-    use Mojo::IOLoop::ReadWriteProcess qw(process);
-
-    # fork as usual in the code, or either create processes and never wait for them.
-    process(sub { ... expensive operation ... } )->start();
-
-    my $process = process(sub { print "Hello"; sleep 1 });
-    $process->detect_subprocess(1);
-    $process->start();
-    $process->on( new_subprocess => sub { print "Not known process: ".(pop->pid)." reaped" } );
-    $process->wait_stop(); # Just wait on the master one (must be last one called in sequence)
-
-    my $subprocesses = $process->subprocess();
-    my $first = $subprocesses->first;
-
-Returns a [Mojo::Collection](https://metacpan.org/pod/Mojo::Collection) of [Mojo::IOLoop::ReadWriteProcess](https://metacpan.org/pod/Mojo::IOLoop::ReadWriteProcess) that contains the pid and
-the exit status of other processes that are sending a SIG\_CHLD.
 
 ## ioloop
 
@@ -385,20 +353,20 @@ This is used typically if you want to mark further childs as subreapers inside o
         process(sub { sleep 4; exit 0 })->start();
         process(sub { sleep 4; die })->start();
         my $manager
-          = process(sub { sleep 2 })->detect_subprocess(1)->subreaper(1)->start();
+          = process(sub { sleep 2 })->subreaper(1)->start();
         sleep 1 for (0 .. 10);
         $manager->stop;
-        return $manager->subprocess->size;
+        return $manager->session->all->size;
       });
 
-    $master_p->detect_subprocess(1);
     $master_p->subreaper(1);
-    $master_p->on(collect_status => sub { $status++ });
 
+    $master_p->on(collected => sub { $status++ });
+
+    # On start we setup the current process as subreaper
+    # So it's up on us to disable it after process is done.
     $master_p->on(stop => sub { shift()->disable_subreaper });
     $master_p->start();
-
-    ....
 
 ## disable\_subreaper()
 
