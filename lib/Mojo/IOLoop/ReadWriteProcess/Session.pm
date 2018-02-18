@@ -190,8 +190,7 @@ sub _prctl {
     ($arg4 or 0),
     ($arg5 or 0));
 
-  warn _get_prctl_syscall() . " $option is unavailable on this platform."
-    if $!{EINVAL};
+  warn "prctl($option) is unavailable on this platform." if $!{EINVAL};
   warn "Error! $!" if $!;
   return $ret;
 }

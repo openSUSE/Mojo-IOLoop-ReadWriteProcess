@@ -121,9 +121,12 @@ subtest subreaper => sub {
   local $SIG{CHLD};
 
   my $sys;
-  eval { $sys = Mojo::IOLoop::ReadWriteProcess::_get_prctl_syscall };
+  eval {
+    $sys = $session->_prctl(
+      Mojo::IOLoop::ReadWriteProcess::Session::PR_SET_CHILD_SUBREAPER(), 1);
+  };
   plan skip_all => "$@ : You do not seem to have subreaper capabilities"
-    if ($@ || !defined $sys);
+    if ($@ || $sys != 0);
 
   $session->reset;
 
@@ -198,9 +201,12 @@ subtest subreaper_bash => sub {
   $session->reset;
 
   my $sys;
-  eval { $sys = Mojo::IOLoop::ReadWriteProcess::_get_prctl_syscall };
+  eval {
+    $sys = $session->_prctl(
+      Mojo::IOLoop::ReadWriteProcess::Session::PR_SET_CHILD_SUBREAPER(), 1);
+  };
   plan skip_all => "You do not seem to have subreaper capabilities"
-    if ($@ || !defined $sys);
+    if ($@ || $sys != 0);
   my $test_script = "$FindBin::Bin/data/subreaper/master.sh";
   plan skip_all =>
     "You do not seem to have bash, which is required (as for now) for this test"
@@ -246,9 +252,12 @@ subtest subreaper_bash_execute => sub {
   $session->reset;
 
   my $sys;
-  eval { $sys = Mojo::IOLoop::ReadWriteProcess::_get_prctl_syscall };
+  eval {
+    $sys = $session->_prctl(
+      Mojo::IOLoop::ReadWriteProcess::Session::PR_SET_CHILD_SUBREAPER(), 1);
+  };
   plan skip_all => "You do not seem to have subreaper capabilities"
-    if ($@ || !defined $sys);
+    if ($@ || $sys != 0);
   my $test_script = "$FindBin::Bin/data/subreaper/master.sh";
   plan skip_all =>
     "You do not seem to have bash, which is required (as for now) for this test"
@@ -290,9 +299,12 @@ subtest manager => sub {
   $session->reset;
 
   my $sys;
-  eval { $sys = Mojo::IOLoop::ReadWriteProcess::_get_prctl_syscall };
+  eval {
+    $sys = $session->_prctl(
+      Mojo::IOLoop::ReadWriteProcess::Session::PR_SET_CHILD_SUBREAPER(), 1);
+  };
   plan skip_all => "You do not seem to have subreaper capabilities"
-    if ($@ || !defined $sys);
+    if ($@ || $sys != 0);
 
   my $master_p = process(
     sub {
@@ -351,9 +363,12 @@ subtest subreaper_bash_roulette => sub {
   $session->reset;
 
   my $sys;
-  eval { $sys = Mojo::IOLoop::ReadWriteProcess::_get_prctl_syscall };
+  eval {
+    $sys = $session->_prctl(
+      Mojo::IOLoop::ReadWriteProcess::Session::PR_SET_CHILD_SUBREAPER(), 1);
+  };
   plan skip_all => "You do not seem to have subreaper capabilities"
-    if ($@ || !defined $sys);
+    if ($@ || $sys != 0);
   my $test_script = "$FindBin::Bin/data/subreaper/roulette.sh";
   plan skip_all =>
     "You do not seem to have bash, which is required (as for now) for this test"
