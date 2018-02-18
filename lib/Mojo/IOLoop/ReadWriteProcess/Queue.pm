@@ -20,12 +20,14 @@ sub exhausted { $_[0]->pool->size == 0 && shift->queue->size == 0 }
 
 sub consume {
   my $self = shift;
-
   until ($self->exhausted) {
+    sleep .5;
     $self->pool->each(
       sub {
         return unless $_;
-        $_->once(stop => sub { $self->_dequeue($_) });
+        return if exists $_->{started};
+        $_->once(stop  => sub { $self->_dequeue($_) });
+        $_->once(start => sub { shift->{started}++ });
         $_->start->wait;
       });
   }
