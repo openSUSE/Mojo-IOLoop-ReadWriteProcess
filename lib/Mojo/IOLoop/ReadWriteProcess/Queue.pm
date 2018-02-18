@@ -4,12 +4,15 @@ use Mojo::IOLoop::ReadWriteProcess::Pool;
 use Mojo::IOLoop::ReadWriteProcess;
 use Mojo::IOLoop::ReadWriteProcess::Session;
 
-has queue => sub { Mojo::IOLoop::ReadWriteProcess::Pool->new() };
-has pool  => sub { Mojo::IOLoop::ReadWriteProcess::Pool->new() };
+use constant DEBUG => $ENV{MOJO_PROCESS_DEBUG};
+
+has queue   => sub { Mojo::IOLoop::ReadWriteProcess::Pool->new() };
+has pool    => sub { Mojo::IOLoop::ReadWriteProcess::Pool->new() };
+has done    => sub { Mojo::IOLoop::ReadWriteProcess::Pool->new() };
+has session => sub { Mojo::IOLoop::ReadWriteProcess::Session->singleton };
 
 sub _dequeue {
-  my $self    = shift;
-  my $process = shift;
+  my ($self, $process) = @_;
 
   $self->pool($self->pool->grep(sub { $process ne $_ }));
   shift @{$self->queue}
@@ -20,15 +23,22 @@ sub exhausted { $_[0]->pool->size == 0 && shift->queue->size == 0 }
 
 sub consume {
   my $self = shift;
+  $self->session->enable;
+  $self->done->maximum_processes(
+    $self->queue->maximum_processes + $self->pool->maximum_processes);
   until ($self->exhausted) {
     sleep .5;
-    $self->pool->each(
+    $self->session->_protect(
       sub {
-        return unless $_;
-        return if exists $_->{started};
-        $_->once(stop  => sub { $self->_dequeue($_) });
-        $_->once(start => sub { shift->{started}++ });
-        $_->start->wait;
+        $self->pool->each(
+          sub {
+            my $p = shift;
+            return unless $p;
+            return if exists $p->{started};
+            $p->{started}++;
+            $p->once(stop => sub { $self->done->add($p); $self->_dequeue($p) });
+            $p->start;
+          });
       });
   }
 }
@@ -78,6 +88,8 @@ Mojo::IOLoop::ReadWriteProcess::Queue - Queue for Mojo::IOLoop::ReadWriteProcess
 
     # Consume the queue
     $q->consume();
+
+    my $all = $q->done; # All processes, Mojo::Collection of Mojo::IOLoop::ReadWriteProcess
 
     # Set your own running pool
     $q->pool(parallel sub { return 42 } => 5);

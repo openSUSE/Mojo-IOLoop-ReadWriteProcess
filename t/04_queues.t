@@ -21,7 +21,7 @@ subtest queues => sub {
 
   my $i = 1;
   for (1 .. $proc) {
-    $q->add(process(sub { shift; return shift() })->args($i));
+    $q->add(process(sub { shift; return shift() })->set_pipes(0)->args($i));
     $i++;
   }
 
@@ -38,6 +38,7 @@ subtest queues => sub {
   is $fired, $proc;
   is $q->queue->size, 0;
   is $q->pool->size,  0;
+  is $q->done->size,  $proc;
 
   $i = 1;
   for (1 .. $proc) {
@@ -56,7 +57,7 @@ subtest test_2 => sub {
 
   my $i = 1;
   for (1 .. $proc) {
-    $q->add(process(sub { shift; return shift() })->args($i));
+    $q->add(process(sub { shift; return shift() })->set_pipes(0)->args($i));
     $i++;
   }
 
@@ -73,6 +74,7 @@ subtest test_2 => sub {
   is $fired, $proc;
   is $q->queue->size, 0;
   is $q->pool->size,  0;
+  is $q->done->size,  $proc;
 
   $i = 1;
   for (1 .. $proc) {
@@ -91,7 +93,7 @@ subtest atomic_queues => sub {
 
   my $i = 1;
   for (1 .. $proc) {
-    $q->add(process(sub { shift; return shift() })->args($i));
+    $q->add(process(sub { shift; return shift() })->set_pipes(0)->args($i));
     $i++;
   }
 
@@ -108,6 +110,7 @@ subtest atomic_queues => sub {
   is $fired, $proc;
   is $q->queue->size, 0;
   is $q->pool->size,  0;
+  is $q->done->size,  $proc;
 
   $i = 1;
   for (1 .. $proc) {
@@ -118,7 +121,7 @@ subtest atomic_queues => sub {
 
 subtest test_3 => sub {
   my $q = queue();
-  $q->pool->maximum_processes(4);
+  $q->pool->maximum_processes(2);
   $q->queue->maximum_processes(100000);
   my $proc = 10;
   my $fired;
@@ -128,7 +131,7 @@ subtest test_3 => sub {
 # Started as long as resources allows (maximum_processes of the main pool)
 # That requires then to subscribe for each process event's separately (manually)
   for (1 .. $proc) {
-    my $p = process(sub { shift; return shift() + 42 })->args($i);
+    my $p = process(sub { shift; return shift() + 42 })->set_pipes(0)->args($i);
     $p->once(
       stop => sub {
         $fired++;
@@ -138,10 +141,11 @@ subtest test_3 => sub {
     $i++;
   }
 
-  is $q->pool->maximum_processes, 4;
+  is $q->pool->maximum_processes, 2;
   $q->consume;
   is $q->queue->size, 0;
   is $q->pool->size,  0;
+  is $q->done->size,  $proc;
   is $fired, $proc;
   $i = 1;
   for (1 .. $proc) {

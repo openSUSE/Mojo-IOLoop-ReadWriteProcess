@@ -27,27 +27,32 @@ my $singleton;
 sub new { $singleton ||= shift->SUPER::new(@_); }
 
 sub disable {
+  $singleton->_protect(sub { $SIG{CHLD} = $singleton->handler() });
+}
+
+sub _protect {
+  my $cb       = pop;
   my $sigset   = POSIX::SigSet->new;
   my $blockset = POSIX::SigSet->new(SIGCHLD);
   sigprocmask(SIG_BLOCK, $blockset, $sigset);
-  $SIG{CHLD} = $singleton->handler();
+  my $r = $cb->();
   sigprocmask(SIG_SETMASK, $sigset);
+  return $r;
 }
 
 sub enable {
-  my $sigset   = POSIX::SigSet->new;
-  my $blockset = POSIX::SigSet->new(SIGCHLD);
   $singleton->handler($SIG{CHLD});
-  sigprocmask(SIG_BLOCK, $blockset, $sigset);
-  $SIG{CHLD} = sub {
-    local ($!, $?);
-    $singleton->emit('SIG_CHLD');
-    return unless $singleton->collect_status;
-    while ((my $pid = waitpid(-1, WNOHANG)) > 0) {
-      $singleton->collect($pid => $? => $!);
-    }
-  };
-  sigprocmask(SIG_SETMASK, $sigset);
+  $singleton->_protect(
+    sub {
+      $SIG{CHLD} = sub {
+        local ($!, $?);
+        $singleton->emit('SIG_CHLD');
+        return unless $singleton->collect_status;
+        while ((my $pid = waitpid(-1, WNOHANG)) > 0) {
+          $singleton->collect($pid => $? => $!);
+        }
+        }
+    });
 }
 
 sub _collect {
