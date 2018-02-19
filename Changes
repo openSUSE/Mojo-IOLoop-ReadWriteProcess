@@ -2,6 +2,10 @@ Revision history for Perl extension Mojo-IOLoop-ReadWriteProcess
 
 {{$NEXT}}
 
+0.16 2018-02-19T13:32:54Z
+
+   - Fix minor issue in event test that made them unstable
+
 0.15 2018-02-19T10:13:22Z
 
    - Fix skipping subreaper tests on unsupported platforms
