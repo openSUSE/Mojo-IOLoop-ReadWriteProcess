@@ -295,6 +295,8 @@ sub _fork {
         for qw(read_stream error_stream write_stream channel_in channel_out);
     }
     $self->session->reset;
+    $self->session->subreaper(0);    # Subreaper bit does not persist in fork
+
     $! = 0;
     my $rt;
     eval { $rt = [$code->($self, @args)]; };
@@ -444,7 +446,7 @@ sub start {
 }
 
 sub send_signal {
-  my $self = shift;
+  my $self   = shift;
   my $signal = shift // $self->_default_kill_signal;
   return unless $self->is_running;
   $self->_diag("Sending signal '$signal' to " . $self->process_id) if DEBUG;
