@@ -8,7 +8,8 @@ use FindBin;
 use Mojo::File qw(tempfile path);
 use lib ("$FindBin::Bin/lib", "../lib", "lib");
 use Mojo::IOLoop::ReadWriteProcess qw(process);
-use Mojo::IOLoop::ReadWriteProcess::Session;
+use Mojo::IOLoop::ReadWriteProcess::Session qw(session);
+use Mojo::IOLoop::ReadWriteProcess::Test::Utils qw(attempt);
 
 subtest SIG_CHLD => sub {
   my $test_script = "$FindBin::Bin/data/process_check.sh";
@@ -32,13 +33,24 @@ subtest SIG_CHLD => sub {
     });
 
   $p->start;
-  $p->wait;
+
+  attempt {
+    attempts  => 10,
+    condition => sub { defined $reached && $reached == 1 },
+    cb => sub { sleep 1 }
+  };
+
   $p->stop;
 
   is $reached, 1, 'SIG_CHLD fired';
   is $collect, 1, 'collect_status fired once';
 
+  is(Mojo::IOLoop::ReadWriteProcess::Session->singleton->all_orphans->size, 0);
+  is(Mojo::IOLoop::ReadWriteProcess::Session->singleton->all->size,         1);
+
+  session->reset;
   my $p2 = process(execute => $test_script);
+  $p2->session->collect_status(1);
 
   $p2->on(
     SIG_CHLD => sub {
@@ -47,32 +59,49 @@ subtest SIG_CHLD => sub {
     });
 
   $p2->start;
-  sleep 1 until $p2->is_running;
+
+  attempt {
+    attempts  => 10,
+    condition => sub { defined $reached && $reached == 2 },
+    cb => sub { sleep 1 }
+  };
+
   $p2->stop;
 
   is $reached, 2, 'SIG_CHLD fired';
+
+  is(Mojo::IOLoop::ReadWriteProcess::Session->singleton->all_orphans->size, 0);
+  is(Mojo::IOLoop::ReadWriteProcess::Session->singleton->all->size,         1);
 };
 
 subtest collect_status => sub {
+  session->reset;
+
   my $collect;
   my $sigcld;
   my $p = process(sub { print "Hello\n" });
   $p->session->collect_status(0);
-  $p->on(collect_status => sub { $collect++ });
+  $p->session->on(collect_status => sub { $collect++ });
   $p->session->on(
     SIG_CHLD => sub {
       $sigcld++;
       waitpid $p->pid, 0;
     });
   $p->start;
-  sleep 1 until $p->is_running;
+
+  attempt {
+    attempts  => 10,
+    condition => sub { defined $sigcld && $sigcld == 1 },
+    cb => sub { sleep 1 }
+  };
+
   $p->stop();
   is $collect, undef, 'No collect_status fired';
   is $sigcld,  1,     'SIG_CHLD fired';
 
+  is(Mojo::IOLoop::ReadWriteProcess::Session->singleton->all_orphans->size, 0);
+  is(Mojo::IOLoop::ReadWriteProcess::Session->singleton->all->size,         1);
 };
 
-is(Mojo::IOLoop::ReadWriteProcess::Session->singleton->all_orphans->size, 0);
-is(Mojo::IOLoop::ReadWriteProcess::Session->singleton->all->size,         3);
 
 done_testing();
