@@ -294,6 +294,7 @@ sub _fork {
       eval { $self->$_->autoflush($self->autoflush) }
         for qw(read_stream error_stream write_stream channel_in channel_out);
     }
+    $self->session->reset;
     $! = 0;
     my $rt;
     eval { $rt = [$code->($self, @args)]; };
