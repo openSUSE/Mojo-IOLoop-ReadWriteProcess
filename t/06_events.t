@@ -21,13 +21,14 @@ subtest SIG_CHLD => sub {
   my $reached;
   my $collect;
 
-# In case of overriding of standard behavior.
-  my $p = process(code => sub { print "Hello\n" }, collect_status => 0);
+  my $p = process(sub { print "Hello\n" });
+  $p->session->collect_status(0);
   $p->on(collect_status => sub { $collect++ });
-  $p->on(
+  $p->session->on(
     SIG_CHLD => sub {
       my $self = shift;
       $reached++;
+      waitpid $p->pid, 0;
     });
 
   $p->start;
@@ -37,7 +38,7 @@ subtest SIG_CHLD => sub {
   is $reached, 1, 'SIG_CHLD fired';
   is $collect, 1, 'collect_status fired once';
 
-  my $p2 = process(execute => $test_script, collect_status => 0);
+  my $p2 = process(execute => $test_script);
 
   $p2->on(
     SIG_CHLD => sub {
@@ -55,7 +56,7 @@ subtest SIG_CHLD => sub {
 subtest collect_status => sub {
   my $collect;
   my $sigcld;
-  my $p = process(code => sub { print "Hello\n" });
+  my $p = process(sub { print "Hello\n" });
   $p->session->collect_status(0);
   $p->on(collect_status => sub { $collect++ });
   $p->session->on(
