@@ -20,7 +20,7 @@ subtest SIG_CHLD => sub {
 "You do not seem to have $test_script. The script is required to run the test"
     unless -e $test_script;
   my $reached;
-  my $collect;
+  my $collect = 0;
 
   my $p = process(sub { print "Hello\n" });
   $p->session->collect_status(0);
@@ -33,17 +33,14 @@ subtest SIG_CHLD => sub {
     });
 
   $p->start;
-
   attempt {
-    attempts  => 10,
+    attempts  => 20,
     condition => sub { defined $reached && $reached == 1 },
-    cb => sub { sleep 1 }
+    cb        => sub { $p->signal(POSIX::SIGTERM); sleep 1; }
   };
 
-  $p->stop;
-
   is $reached, 1, 'SIG_CHLD fired';
-  is $collect, 1, 'collect_status fired once';
+  is $collect, 0, 'collect_status not fired';
 
   is(Mojo::IOLoop::ReadWriteProcess::Session->singleton->all_orphans->size, 0);
   is(Mojo::IOLoop::ReadWriteProcess::Session->singleton->all->size,         1);
@@ -51,6 +48,8 @@ subtest SIG_CHLD => sub {
   session->reset;
   my $p2 = process(execute => $test_script);
   $p2->session->collect_status(1);
+
+  $reached = 0;
 
   $p2->on(
     SIG_CHLD => sub {
@@ -61,14 +60,13 @@ subtest SIG_CHLD => sub {
   $p2->start;
 
   attempt {
-    attempts  => 10,
-    condition => sub { defined $reached && $reached == 2 },
-    cb => sub { sleep 1 }
+    attempts  => 20,
+    condition => sub { defined $reached && $reached == 1 },
+    cb        => sub { $p2->signal(POSIX::SIGTERM); sleep 1; }
   };
 
-  $p2->stop;
-
-  is $reached, 2, 'SIG_CHLD fired';
+  is $reached, 1, 'SIG_CHLD fired';
+  ok defined($p2->exit_status), 'SIG_CHLD fired';
 
   is(Mojo::IOLoop::ReadWriteProcess::Session->singleton->all_orphans->size, 0);
   is(Mojo::IOLoop::ReadWriteProcess::Session->singleton->all->size,         1);
@@ -77,11 +75,9 @@ subtest SIG_CHLD => sub {
 subtest collect_status => sub {
   session->reset;
 
-  my $collect;
   my $sigcld;
   my $p = process(sub { print "Hello\n" });
   $p->session->collect_status(0);
-  $p->session->on(collect_status => sub { $collect++ });
   $p->session->on(
     SIG_CHLD => sub {
       $sigcld++;
@@ -92,12 +88,10 @@ subtest collect_status => sub {
   attempt {
     attempts  => 10,
     condition => sub { defined $sigcld && $sigcld == 1 },
-    cb => sub { sleep 1 }
+    cb        => sub { $p->signal(POSIX::SIGTERM); sleep 1 }
   };
 
-  $p->stop();
-  is $collect, undef, 'No collect_status fired';
-  is $sigcld,  1,     'SIG_CHLD fired';
+  is $sigcld, 1, 'SIG_CHLD fired';
 
   is(Mojo::IOLoop::ReadWriteProcess::Session->singleton->all_orphans->size, 0);
   is(Mojo::IOLoop::ReadWriteProcess::Session->singleton->all->size,         1);
