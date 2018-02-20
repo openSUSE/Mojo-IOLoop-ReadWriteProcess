@@ -15,7 +15,7 @@ use Mojo::IOLoop;
 use Mojo::IOLoop::ReadWriteProcess::Session qw(session);
 
 subtest register => sub {
-  my $s = Mojo::IOLoop::ReadWriteProcess::Session->singleton;
+  my $s = session;
   my $p = process(sub { });
   $s->register(1 => $p);
 
@@ -29,7 +29,6 @@ subtest register => sub {
 
   is $p->{foo}, 'kaboom';
 };
-
 
 subtest unregister => sub {
   session->clean();

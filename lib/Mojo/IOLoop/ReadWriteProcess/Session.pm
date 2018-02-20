@@ -24,7 +24,10 @@ has process_table  => sub { {} };
 has 'handler';
 
 my $singleton;
-sub new { $singleton ||= shift->SUPER::new(@_); }
+
+sub new {
+  $singleton ||= $_[0] ? shift->SUPER::new(@_) : __PACKAGE__->SUPER::new;
+}
 
 sub disable {
   $singleton->_protect(sub { $SIG{CHLD} = $singleton->handler() });
