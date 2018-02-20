@@ -12,6 +12,11 @@ perl:
 before_script:
   - cpanm --quiet --notest --skip-satisfied Devel::Cover Devel::Cover::Report::Codecov
 
+matrix:
+  include:
+    - perl: 5.12
+      env: MOJO_PROCESS_DEBUG=1 MOJO_EVENTEMITTER_DEBUG=1
+
 script:
   - perl Build.PL
   - ./Build build
