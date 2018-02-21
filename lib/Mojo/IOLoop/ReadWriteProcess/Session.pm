@@ -128,16 +128,15 @@ sub reset {
   shift->process_table({});
 }
 
+# XXX: This should be replaced by PR_GET_CHILD_SUBREAPER
 sub disable_subreaper {
-  $singleton->subreaper(1)
-    unless $singleton->_prctl(PR_SET_CHILD_SUBREAPER, 0) == 0;
-  $singleton;
+  $singleton->subreaper(
+    $singleton->_prctl(PR_SET_CHILD_SUBREAPER, 0) == 0 ? 0 : 1);
 }
 
 sub enable_subreaper {
-  $singleton->subreaper(0)
-    unless $singleton->_prctl(PR_SET_CHILD_SUBREAPER, 1) == 0;
-  $singleton;
+  $singleton->subreaper(
+    $singleton->_prctl(PR_SET_CHILD_SUBREAPER, 1) == 0 ? 1 : 0);
 }
 
 sub _get_prctl_syscall {
