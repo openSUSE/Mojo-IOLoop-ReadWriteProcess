@@ -94,12 +94,12 @@ sub _resolve {
   my ($el, $w) = (pop, pop);
   return
     exists $singleton->{$w}->{$el} ?
-    $el eq 'orphan'
+    $w eq 'orphans'
       ? $singleton->{$w}->{$el}
       : ${$singleton->{$w}->{$el}}
     : undef;
 }
-sub orphan  { _resolve(orphan        => pop()) }
+sub orphan  { _resolve(orphans       => pop()) }
 sub resolve { _resolve(process_table => pop()) }
 
 sub clean {
