@@ -161,7 +161,7 @@ sub _fork_collect_status {
   my $rt;
   my @result_error;
 
-  $self->_status($e // $?) if !defined $self->_status;
+  $self->_status($e // $?) unless defined $self->_status;
   $self->_diag("Forked code Process Exit status: " . $self->exit_status)
     if DEBUG;
 
