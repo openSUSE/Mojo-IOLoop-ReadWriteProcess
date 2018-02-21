@@ -468,7 +468,7 @@ sub send_signal {
 sub stop {
   my $self = shift;
 
-  return $self unless $self->pid;
+  return $self unless defined $self->pid;
 
   $self->_diag("Stopping " . $self->pid) if DEBUG;
 
@@ -504,14 +504,10 @@ sub stop {
       if DEBUG;
     $self->emit('process_stuck');
 
-    # XXX: protecting when being blocking is a bad thing
-    $self->session->_protect(
-      sub {
-        local $?;
-        $self->send_signal($self->_default_blocking_signal);
-        $ret = waitpid($self->process_id, 0);
-        $self->_status($?) if $ret == $self->process_id;
-      });
+    ### XXX: avoid to protect on blocking.
+    $self->send_signal($self->_default_blocking_signal);
+    $ret = waitpid($self->process_id, 0);
+    $self->_status($?) if $ret == $self->process_id;
   }
   elsif ($self->is_running) {
     $self->_diag("Could not kill process id: " . $self->process_id) if DEBUG;
