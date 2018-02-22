@@ -25,9 +25,7 @@ has 'handler';
 
 my $singleton;
 
-sub new {
-  $singleton ||= $_[0] ? shift->SUPER::new(@_) : __PACKAGE__->SUPER::new;
-}
+sub new { $singleton ||= __PACKAGE__->SUPER::new }
 
 sub disable {
   $singleton->_protect(sub { $SIG{CHLD} = $singleton->handler() });
