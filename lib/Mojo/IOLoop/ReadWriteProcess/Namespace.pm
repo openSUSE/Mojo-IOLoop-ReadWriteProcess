@@ -29,7 +29,6 @@ use Exporter 'import';
 
 sub _get_unshare_syscall {
 
-  # Courtesy of Sys::Prctl
   confess "Only Linux is supported" unless $^O eq 'linux';
 
   my $machine = (POSIX::uname())[4];
@@ -66,7 +65,6 @@ sub _get_unshare_syscall {
 
 sub _get_mount_syscall {
 
-  # Courtesy of Sys::Prctl
   confess "Only Linux is supported" unless $^O eq 'linux';
 
   my $machine = (POSIX::uname())[4];

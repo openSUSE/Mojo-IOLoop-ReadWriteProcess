@@ -62,16 +62,16 @@ sub start {
 
   $self->process->code(
     sub {
-      my $ok;
-      $ok = 1 if $self->namespace->unshare($self->unshare) == 0;
-      if ($self->unshare & CLONE_NEWPID && $ok) {
+      if ( $self->unshare & CLONE_NEWPID
+        && $self->namespace->unshare($self->unshare) == 0)
+      {
 
         # In such case, we have to spawn another process
         my $init = Mojo::IOLoop::ReadWriteProcess->new(
-          set_pipes => 0,
-          code      => sub {
-            my $p = shift;
-            $p->enable_subreaper if $self->subreaper;
+          set_pipes      => 0,
+          internal_pipes => 1,
+          code           => sub {
+            $_[0]->enable_subreaper if $self->subreaper;
             $self->namespace->isolate() if $self->unshare & CLONE_NEWNS;
             $fn->(@_);
           });
