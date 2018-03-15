@@ -2,13 +2,16 @@ package Mojo::IOLoop::ReadWriteProcess::CGroup;
 
 use Mojo::Base -base;
 use Mojo::File 'path';
-our @EXPORT_OK = qw(cgroupv2 cgroupv1);
-use Exporter 'import';
 
 use Mojo::IOLoop::ReadWriteProcess::CGroup::v1;
 use Mojo::IOLoop::ReadWriteProcess::CGroup::v2;
 
-has '_vfs' => $ENV{MOJO_CGROUP_FS} // '/sys/fs/cgroup';
+our @EXPORT_OK = qw(cgroupv2 cgroupv1);
+use Exporter 'import';
+
+use constant CGROUP_FS => $ENV{MOJO_CGROUP_FS} // '/sys/fs/cgroup';
+
+has '_vfs' => sub { CGROUP_FS() };
 
 has [qw(name parent)];
 
