@@ -18,6 +18,8 @@ use Mojo::IOLoop::ReadWriteProcess::CGroup::v1::Memory;
 use Mojo::IOLoop::ReadWriteProcess::CGroup::v1::Devices;
 use Mojo::IOLoop::ReadWriteProcess::CGroup::v1::Cpuacct;
 use Mojo::IOLoop::ReadWriteProcess::CGroup::v1::Cpuset;
+use Mojo::IOLoop::ReadWriteProcess::CGroup::v1::Netcls;
+use Mojo::IOLoop::ReadWriteProcess::CGroup::v1::Netprio;
 
 has controller => '';
 
@@ -75,6 +77,20 @@ has cpuset => sub {
     = Mojo::IOLoop::ReadWriteProcess::CGroup::v1::Cpuset->new(cgroup => shift);
   Scalar::Util::weaken $cpuset->{cgroup};
   return $cpuset;
+};
+
+has netcls => sub {
+  my $netcls
+    = Mojo::IOLoop::ReadWriteProcess::CGroup::v1::Netcls->new(cgroup => shift);
+  Scalar::Util::weaken $netcls->{cgroup};
+  return $netcls;
+};
+
+has netprio => sub {
+  my $netprio
+    = Mojo::IOLoop::ReadWriteProcess::CGroup::v1::Netprio->new(cgroup => shift);
+  Scalar::Util::weaken $netprio->{cgroup};
+  return $netprio;
 };
 
 # CGroups process interface

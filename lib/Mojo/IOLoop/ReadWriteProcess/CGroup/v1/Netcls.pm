@@ -1,16 +1,12 @@
-package Mojo::IOLoop::ReadWriteProcess::CGroup::v1::Devices;
+package Mojo::IOLoop::ReadWriteProcess::CGroup::v1::Netcls;
 
 use Mojo::Base -base;
 
-use constant {
-  DEVICES_ALLOW_INTERFACE => 'devices.allow',
-  DEVICES_DENY_INTERFACE  => 'devices.deny',
-};
+use constant CLASSID_INTERFACE => 'net_cls.classid';
 
 has cgroup => sub { Mojo::IOLoop::ReadWriteProcess::CGroup::v1->new };
 
-sub allow { shift->cgroup->_write(DEVICES_ALLOW_INTERFACE, @_) }
-sub deny  { shift->cgroup->_write(DEVICES_DENY_INTERFACE,  @_) }
+sub classid { shift->cgroup->_setget(CLASSID_INTERFACE, @_) }
 
 1;
 
@@ -18,7 +14,7 @@ sub deny  { shift->cgroup->_write(DEVICES_DENY_INTERFACE,  @_) }
 
 =head1 NAME
 
-Mojo::IOLoop::ReadWriteProcess::CGroup::v1::Devices - CGroups v1 Devices Controller.
+Mojo::IOLoop::ReadWriteProcess::CGroup::v1::Netcls - CGroups v1 Netcls Controller.
 
 =head1 SYNOPSIS
 
@@ -26,7 +22,7 @@ Mojo::IOLoop::ReadWriteProcess::CGroup::v1::Devices - CGroups v1 Devices Control
 
     my $cgroup = Mojo::IOLoop::ReadWriteProcess::CGroup::v1->new( name => "test" );
 
-    $cgroup->devices->allow('a *:* rwm');
+    $cgroup->netcls->current;
 
 =head1 DESCRIPTION
 
@@ -35,7 +31,7 @@ and requires cgroups and capability for unshare syscalls to achieve pid isolatio
 
 =head1 METHODS
 
-L<Mojo::IOLoop::ReadWriteProcess::CGroup::v1::Devices> inherits all methods from L<Mojo::Base> and implements
+L<Mojo::IOLoop::ReadWriteProcess::CGroup::v1::Netcls> inherits all methods from L<Mojo::Base> and implements
 the following new ones.
 
 =head1 LICENSE

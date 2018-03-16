@@ -37,25 +37,33 @@ use constant {
   # the searching range when migrating tasks
   SCHED_RELAX_DOMAIN_LEVEL_INTERFACE => 'cpuset.sched_relax_domain_level',
 
-  # In addition, only the root cpuset has the following - compute memory_pressure?
+# In addition, only the root cpuset has the following - compute memory_pressure?
   MEMORY_PRESSURE_ENABLED_INTERFACE => 'cpuset.memory_pressure_enabled',
 
 };
 
 has cgroup => sub { Mojo::IOLoop::ReadWriteProcess::CGroup::v1->new };
 
-sub cpus            { shift->cgroup->_write(CPUS_INTERFACE,@_) }
-sub mems            { shift->cgroup->_write(MEMS_INTERFACE,@_) }
-sub memory_pressure  { shift->cgroup->_flag(MEMORY_PRESSURE_ENABLED_INTERFACE,  @_) }
-sub sched_relax_domain_level  { shift->cgroup->_flag(SCHED_RELAX_DOMAIN_LEVEL_INTERFACE,  @_) }
-sub sched_load_balance  { shift->cgroup->_flag(SCHED_LOAD_BALANCE_INTERFACE,  @_) }
-sub memory_spread_slab  { shift->cgroup->_flag(MEM_SPREAD_SLAB_INTERFACE,  @_) }
-sub memory_spread_page  { shift->cgroup->_flag(MEM_SPREAD_PAGE_INTERFACE,  @_) }
-sub get_memory_pressure  { shift->cgroup->_list(MEM_PRESSURE_INTERFACE,  @_) }
-sub mem_hardwall  { shift->cgroup->_flag(MEM_HARDWALL_INTERFACE,  @_) }
+sub cpus { shift->cgroup->_write(CPUS_INTERFACE, @_) }
+sub mems { shift->cgroup->_write(MEMS_INTERFACE, @_) }
+
+sub memory_pressure {
+  shift->cgroup->_flag(MEMORY_PRESSURE_ENABLED_INTERFACE, @_);
+}
+
+sub sched_relax_domain_level {
+  shift->cgroup->_flag(SCHED_RELAX_DOMAIN_LEVEL_INTERFACE, @_);
+}
+sub sched_load_balance {
+  shift->cgroup->_flag(SCHED_LOAD_BALANCE_INTERFACE, @_);
+}
+sub memory_spread_slab { shift->cgroup->_flag(MEM_SPREAD_SLAB_INTERFACE, @_) }
+sub memory_spread_page { shift->cgroup->_flag(MEM_SPREAD_PAGE_INTERFACE, @_) }
+sub get_memory_pressure { shift->cgroup->_list(MEM_PRESSURE_INTERFACE, @_) }
+sub mem_hardwall   { shift->cgroup->_flag(MEM_HARDWALL_INTERFACE,   @_) }
 sub mem_exclusive  { shift->cgroup->_flag(MEM_EXCLUSIVE_INTERFACE,  @_) }
 sub cpu_exclusive  { shift->cgroup->_flag(CPU_EXCLUSIVE_INTERFACE,  @_) }
-sub memory_migrate  { shift->cgroup->_flag(MEMORY_MIGRATE_INTERFACE,  @_) }
+sub memory_migrate { shift->cgroup->_flag(MEMORY_MIGRATE_INTERFACE, @_) }
 
 1;
 
