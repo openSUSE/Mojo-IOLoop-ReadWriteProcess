@@ -5,7 +5,7 @@ package Mojo::IOLoop::ReadWriteProcess::CGroup::v1;
 use Mojo::Base 'Mojo::IOLoop::ReadWriteProcess::CGroup';
 use Mojo::File 'path';
 use Mojo::Collection 'c';
-
+use Carp 'confess';
 our @EXPORT_OK = qw(cgroup);
 use Exporter 'import';
 
@@ -13,6 +13,11 @@ use constant {PROCS_INTERFACE => 'cgroup.procs', TASKS_INTERFACE => 'tasks'};
 
 use Scalar::Util ();
 use Mojo::IOLoop::ReadWriteProcess::CGroup::v1::PID;
+use Mojo::IOLoop::ReadWriteProcess::CGroup::v1::RDMA;
+use Mojo::IOLoop::ReadWriteProcess::CGroup::v1::Memory;
+use Mojo::IOLoop::ReadWriteProcess::CGroup::v1::Devices;
+use Mojo::IOLoop::ReadWriteProcess::CGroup::v1::Cpuacct;
+use Mojo::IOLoop::ReadWriteProcess::CGroup::v1::Cpuset;
 
 has controller => '';
 
@@ -37,6 +42,40 @@ has pid => sub {
   return $pid;
 };
 
+has rdma => sub {
+  my $rdma
+    = Mojo::IOLoop::ReadWriteProcess::CGroup::v1::RDMA->new(cgroup => shift);
+  Scalar::Util::weaken $rdma->{cgroup};
+  return $rdma;
+};
+
+has memory => sub {
+  my $memory
+    = Mojo::IOLoop::ReadWriteProcess::CGroup::v1::Memory->new(cgroup => shift);
+  Scalar::Util::weaken $memory->{cgroup};
+  return $memory;
+};
+
+has devices => sub {
+  my $devices
+    = Mojo::IOLoop::ReadWriteProcess::CGroup::v1::Devices->new(cgroup => shift);
+  Scalar::Util::weaken $devices->{cgroup};
+  return $devices;
+};
+
+has cpuacct => sub {
+  my $cpuacct
+    = Mojo::IOLoop::ReadWriteProcess::CGroup::v1::Cpuacct->new(cgroup => shift);
+  Scalar::Util::weaken $cpuacct->{cgroup};
+  return $cpuacct;
+};
+
+has cpuset => sub {
+  my $cpuset
+    = Mojo::IOLoop::ReadWriteProcess::CGroup::v1::Cpuset->new(cgroup => shift);
+  Scalar::Util::weaken $cpuset->{cgroup};
+  return $cpuset;
+};
 
 # CGroups process interface
 sub add_process {
