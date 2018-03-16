@@ -20,6 +20,7 @@ use Mojo::IOLoop::ReadWriteProcess::CGroup::v1::Cpuacct;
 use Mojo::IOLoop::ReadWriteProcess::CGroup::v1::Cpuset;
 use Mojo::IOLoop::ReadWriteProcess::CGroup::v1::Netcls;
 use Mojo::IOLoop::ReadWriteProcess::CGroup::v1::Netprio;
+use Mojo::IOLoop::ReadWriteProcess::CGroup::v1::Freezer;
 
 has controller => '';
 
@@ -91,6 +92,13 @@ has netprio => sub {
     = Mojo::IOLoop::ReadWriteProcess::CGroup::v1::Netprio->new(cgroup => shift);
   Scalar::Util::weaken $netprio->{cgroup};
   return $netprio;
+};
+
+has freezer => sub {
+  my $freezer
+    = Mojo::IOLoop::ReadWriteProcess::CGroup::v1::Freezer->new(cgroup => shift);
+  Scalar::Util::weaken $freezer->{cgroup};
+  return $freezer;
 };
 
 # CGroups process interface
