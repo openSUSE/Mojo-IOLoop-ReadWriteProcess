@@ -22,6 +22,7 @@ eval {
 plan skip_all => "This test works only if you have cgroups permissions" if $@;
 
 subtest belongs => sub {
+  cgroupv1(controller => 'pids', name => 'group')->create;
   my $cgroup = cgroupv1(controller => 'pids', name => 'group')->child('test');
   isa_ok $cgroup, 'Mojo::IOLoop::ReadWriteProcess::CGroup::v1';
 
@@ -50,6 +51,7 @@ subtest belongs => sub {
 subtest childs => sub {
   my $cgroup = cgroupv1(controller => 'pids', name => 'group')->child('test');
   isa_ok $cgroup, 'Mojo::IOLoop::ReadWriteProcess::CGroup::v1';
+  is $cgroup->exists(), 1, 'Cgroup exists';
 
   my $p = process(
     sub {
@@ -89,7 +91,7 @@ subtest childs => sub {
 subtest container_pid_isolation => sub {
   plan skip_all => "This test works only if you are root" if ($< != "0");
 
-  if ($ENV{MOJO_PROCESS_DEBUG} == 1) {
+  if ($ENV{MOJO_PROCESS_DEBUG} eq "1") {
     local $ENV{MOJO_PROCESS_DEBUG}
       = 0;    # It will change our container output otherwise :(
 
@@ -132,13 +134,14 @@ subtest container_pid_isolation => sub {
   $c->process->on(collected => sub { $fired++ });
   $c->once(stop => sub { $fired++ });
 
-  my $p      = $c->process();
-  my $cgroup = $c->cgroup;
-  is $cgroup->process_list, $p->pid . "\n",
+  my $p       = $c->process();
+  my $cgroups = $c->cgroups;
+  is $cgroups->first->process_list, $p->pid . "\n",
     "procs interface contains the added pids"
-    or diag explain $cgroup->process_list;
+    or diag explain $cgroups->first->process_list;
 
-  ok $cgroup->contains_process($p->pid), "Parent contains pid " . $p->pid;
+  ok $cgroups->first->contains_process($p->pid),
+    "Parent contains pid " . $p->pid;
 
   my $virtual_pid;
   while (defined(my $line = $c->process->getline())) {
@@ -148,22 +151,22 @@ subtest container_pid_isolation => sub {
 
   attempt {
     attempts  => 20,
-    condition => sub { $cgroup->processes->size == 6 },
+    condition => sub { $cgroups->first->processes->size == 6 },
     cb        => sub { sleep 1; }
   };
 
   $c->stop();
-  is $cgroup->process_list, '' or die diag explain $cgroup->process_list;
-  $cgroup->remove();
+  is $cgroups->first->process_list, ''
+    or die diag explain $cgroups->first->process_list;
+  $cgroups->first->remove();
   is scalar(@pids), 6 or diag explain \@pids;
   is $virtual_pid, '1', "Running process was PID 1 inside container";
-  ok !$cgroup->exists();
+  ok !$cgroups->first->exists();
   is $fired, 2;
 };
 
 subtest container_no_pid_isolation => sub {
-  plan skip_all => "This test works only if you are root" if ($< != "0");
-  if ($ENV{MOJO_PROCESS_DEBUG} == 1) {
+  if ($ENV{MOJO_PROCESS_DEBUG} eq "1") {
     local $ENV{MOJO_PROCESS_DEBUG}
       = 0;    # It will change our container output otherwise :(
     delete $INC{'Mojo/IOLoop/ReadWriteProcess.pm'};
@@ -202,7 +205,7 @@ subtest container_no_pid_isolation => sub {
   $c->session->on(register => sub { push(@pids, shift) });
 
   my $p      = $c->process();
-  my $cgroup = $c->cgroup;
+  my $cgroup = $c->cgroups->first;
   is $cgroup->process_list, $p->pid . "\n",
     "procs interface contains the added pids"
     or diag explain $cgroup->process_list;
