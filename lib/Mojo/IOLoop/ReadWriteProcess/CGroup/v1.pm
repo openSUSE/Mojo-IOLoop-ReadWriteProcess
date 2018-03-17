@@ -21,7 +21,6 @@ use Mojo::IOLoop::ReadWriteProcess::CGroup::v1::Cpuset;
 use Mojo::IOLoop::ReadWriteProcess::CGroup::v1::Netcls;
 use Mojo::IOLoop::ReadWriteProcess::CGroup::v1::Netprio;
 use Mojo::IOLoop::ReadWriteProcess::CGroup::v1::Freezer;
-
 has controller => '';
 
 sub _cgroup {

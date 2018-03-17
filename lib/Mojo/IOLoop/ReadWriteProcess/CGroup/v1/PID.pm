@@ -2,8 +2,7 @@ package Mojo::IOLoop::ReadWriteProcess::CGroup::v1::PID;
 
 use Mojo::Base -base;
 
-use constant {CURRENT_INTERFACE => 'pids.current', MAX_INTERFACE => 'pids.max',
-};
+use constant {CURRENT_INTERFACE => 'pids.current', MAX_INTERFACE => 'pids.max'};
 
 has cgroup => sub { Mojo::IOLoop::ReadWriteProcess::CGroup::v2->new };
 
@@ -33,7 +32,7 @@ and requires cgroups and capability for unshare syscalls to achieve pid isolatio
 
 =head1 METHODS
 
-L<Mojo::IOLoop::ReadWriteProcess::CGroup::v1::PID> inherits all methods from L<Mojo::Base> and implements
+L<Mojo::IOLoop::ReadWriteProcess::CGroup::v1::PID> inherits all methods from L<Mojo::EventEmitter> and implements
 the following new ones.
 
 =head1 LICENSE

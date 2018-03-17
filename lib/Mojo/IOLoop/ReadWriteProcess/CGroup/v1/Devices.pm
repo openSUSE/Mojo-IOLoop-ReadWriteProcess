@@ -4,7 +4,7 @@ use Mojo::Base -base;
 
 use constant {
   DEVICES_ALLOW_INTERFACE => 'devices.allow',
-  DEVICES_DENY_INTERFACE  => 'devices.deny',
+  DEVICES_DENY_INTERFACE  => 'devices.deny'
 };
 
 has cgroup => sub { Mojo::IOLoop::ReadWriteProcess::CGroup::v1->new };
