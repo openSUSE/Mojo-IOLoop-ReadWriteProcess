@@ -6,7 +6,8 @@ use Mojo::IOLoop::ReadWriteProcess;
 use Mojo::IOLoop::ReadWriteProcess::Namespace qw( CLONE_NEWPID CLONE_NEWNS );
 use Mojo::IOLoop::ReadWriteProcess;
 use Mojo::IOLoop::ReadWriteProcess::Session;
-
+use Mojo::Collection 'c';
+use Scalar::Util 'blessed';
 our @EXPORT_OK = qw(container);
 use Exporter 'import';
 
@@ -16,8 +17,9 @@ has 'group';
 
 # Roughly a container
 has process => sub { Mojo::IOLoop::ReadWriteProcess->new };
-has cgroup =>
-  sub { Mojo::IOLoop::ReadWriteProcess::CGroup::v1->new(controller => 'pids') };
+has cgroups => sub {
+  c(Mojo::IOLoop::ReadWriteProcess::CGroup::v1->new(controller => 'pids'));
+};
 has namespace     => sub { Mojo::IOLoop::ReadWriteProcess::Namespace->new };
 has session       => sub { Mojo::IOLoop::ReadWriteProcess::Session->singleton };
 has pid_isolation => sub { 0 };
@@ -26,32 +28,49 @@ has subreaper     => 0;
 
 sub container { __PACKAGE__->new(@_) }
 
+sub new {
+  my $self = shift->SUPER::new(@_);
+  $self->cgroups(c($self->cgroups))
+    unless blessed $self->cgroups && $self->cgroups->isa('Mojo::Collection');
+  $self;
+}
+
 sub start {
   my $self = shift;
-  croak "Container need a group!" unless $self->group;
+
   $self->process(process($self->process))
     unless $self->process->isa("Mojo::IOLoop::ReadWriteProcess");
-  $self->cgroup->name($self->group)->create unless $self->cgroup->name;
-  $self->cgroup($self->cgroup->name($self->group)->child($self->name))
-    and $self->cgroup->create
-    if $self->name;
+
+  $self->cgroups->map(
+    sub {
+      return $_ if $_->name || $_->parent;
+      $_ = $_->name($self->group)->child($self->name)->create
+        if $self->name && $self->group;
+    });
+
   $self->process->subreaper(1) if $self->subreaper;
 
   $self->unshare(CLONE_NEWPID | CLONE_NEWNS) if $self->pid_isolation;
   $self->process->once(
-    start => sub { $self->cgroup->add_process($self->process->pid) });
+    start => sub {
+      $self->cgroups->each(sub { shift->add_process($self->process->pid) });
+    });
 
   $self->process->once(
     stop => sub {
-      $self->cgroup->processes->each(
+      $self->cgroups->each(
         sub {
-          my $pid = shift;
-          my $p   = Mojo::IOLoop::ReadWriteProcess->new(
-            process_id    => $pid,
-            blocking_stop => 1
-          );
-          $self->session->register($pid => $p);
-          $p->stop();
+          shift->processes->each(
+            sub {
+              my $pid = shift;
+              my $p   = Mojo::IOLoop::ReadWriteProcess->new(
+                process_id    => $pid,
+                blocking_stop => 1
+              );
+              $self->session->register($pid => $p);
+              $p->stop();
+            });
+
         });
     });
 
