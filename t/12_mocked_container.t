@@ -21,7 +21,7 @@ subtest container => sub {
     subreaper => 1,
     group     => "group",
     name      => "test",
-    process   => process(sub { sleep 5 }),
+    process   => sub { sleep 5 },
   );
 
   my @pids;
