@@ -37,16 +37,21 @@ sub new {
 
 sub start {
   my $self = shift;
+  croak
+'You need either to pass a Mojo::IOLoop::ReadWriteProcess object or a callback'
+    unless (blessed $self->process
+    && $self->process->isa("Mojo::IOLoop::ReadWriteProcess"))
+    || ref $self->process eq 'CODE';
 
-  $self->process(process($self->process))
-    unless $self->process->isa("Mojo::IOLoop::ReadWriteProcess");
+  $self->process(Mojo::IOLoop::ReadWriteProcess->new($self->process))
+    unless blessed $self->process;
 
   $self->cgroups->map(
     sub {
       return $_ if $_->name || $_->parent;
-      $_ = $_->name($self->group)->child($self->name)->create
-        if $self->name && $self->group;
-    });
+      $_ = $_->name($self->group)->create if $self->group;
+      $_ = $_->child($self->name)->create if $self->name;
+    }) if defined $self->group || defined $self->name;
 
   $self->process->subreaper(1) if $self->subreaper;
 
