@@ -41,6 +41,12 @@ subtest belongs => sub {
 
   is $p->is_running, 0;
 
+  attempt {
+    attempts  => 20,
+    condition => sub { $cgroup->process_list eq ''},
+    cb        => sub { sleep 1; }
+  };
+
   is $cgroup->process_list, '';
   $cgroup->remove();
 
