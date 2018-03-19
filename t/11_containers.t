@@ -76,7 +76,7 @@ subtest childs => sub {
 
   attempt {
     attempts  => 20,
-    condition => sub { $cgroup->processes->size == 1 },
+    condition => sub { $cgroup->processes->size == 2 },
     cb        => sub { sleep 1; }
   };
 
@@ -87,7 +87,7 @@ subtest childs => sub {
   is $cgroup->pid->current, "1\n";
   process(process_id => $_, blocking_stop => 1)->stop()
     for $cgroup->processes->each;
-  is $cgroup->process_list, '' or die diag explain $cgroup->process_list;
+  is $cgroup->process_list, '' or diag explain $cgroup->process_list;
   $cgroup->remove();
 
   ok !$cgroup->exists();
