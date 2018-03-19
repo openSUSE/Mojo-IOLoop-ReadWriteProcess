@@ -17,7 +17,6 @@ matrix:
 
 before_script:
   - cpanm --quiet --notest --skip-satisfied Devel::Cover Devel::Cover::Report::Codecov
-  - sudo ./tools/setup "$USER"
 
 script:
   - perl Build.PL
