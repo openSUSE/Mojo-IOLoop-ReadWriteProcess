@@ -8,12 +8,12 @@ use FindBin;
 use Mojo::File qw(tempfile tempdir path);
 use lib ("$FindBin::Bin/lib", "../lib", "lib");
 
+BEGIN { $ENV{MOJO_CGROUP_FS} = tempdir() }
+
 use Mojo::IOLoop::ReadWriteProcess qw(process);
 use Mojo::IOLoop::ReadWriteProcess::Test::Utils qw(attempt);
 use Mojo::IOLoop::ReadWriteProcess::CGroup qw(cgroupv2 cgroupv1);
 use Mojo::IOLoop::ReadWriteProcess::Container qw(container);
-
-BEGIN { $ENV{MOJO_CGROUP_FS} = tempdir() }
 
 subtest container => sub {
 
@@ -46,8 +46,11 @@ subtest container => sub {
   };
 
   $p->wait();
-  is $cgroups->first->process_list, ''
+  is $cgroups->first->process_list, $p->pid . "\n"
     or die diag explain $cgroups->first->process_list;
+
+  unlink $cgroups->first->_cgroup
+    ->child(Mojo::IOLoop::ReadWriteProcess::CGroup::v1::PROCS_INTERFACE);
   $cgroups->first->remove();
   ok !$cgroups->first->exists();
   is $fired, 1;
