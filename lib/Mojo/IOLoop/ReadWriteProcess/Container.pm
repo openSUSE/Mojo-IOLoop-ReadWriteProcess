@@ -25,6 +25,7 @@ has session       => sub { Mojo::IOLoop::ReadWriteProcess::Session->singleton };
 has pid_isolation => sub { 0 };
 has unshare       => undef;
 has subreaper     => 0;
+use constant DEBUG => $ENV{MOJO_PROCESS_DEBUG};
 
 sub container { __PACKAGE__->new(@_) }
 
@@ -108,6 +109,17 @@ sub start {
         $fn->(@_);
       }
     }) if defined $self->unshare;
+
+  if (DEBUG) {
+    $self->process->diag(
+      "Starting container: " . $self->group . " " . $self->name);
+    $self->cgroups->each(
+      sub {
+
+        $self->process->diag("CGroups: " . $_->_cgroup);
+      });
+  }
+
 
   $self->process->start();
 }
