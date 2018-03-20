@@ -88,7 +88,7 @@ sub populated { shift->_list(EVENTS_INTERFACE) }
 sub type { shift->_setget(+TYPE_INTERFACE() => pop) }
 
 # CGroups controllers Interface
-sub controllers { shift->_list(+CONTROLLERS_INTERFACE() => pop) }
+sub controllers { shift->_setget(+CONTROLLERS_INTERFACE() => pop) }
 
 # CGroups subtree_control Interface
 sub subtree_control { shift->_setget(+SUBTREE_CONTROL_INTERFACE() => pop) }
