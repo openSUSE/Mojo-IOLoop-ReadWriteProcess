@@ -54,6 +54,9 @@ subtest mock => sub {
     "procs interface contains the added pids"
     or die diag explain $cgroup->process_list;
 
+  is $cgroup->processes->first, 30, 'first process has pid 30';
+  is $cgroup->processes->last,  50, 'last process has pid 50';
+
   ok $cgroup->contains_process("30"), "Parent contains pid 30";
   ok $cgroup->contains_process("50"), "Parent contains pid 50";
   ok !$cgroup->contains_process("3"), "Parent does not contain pid 3";
@@ -109,13 +112,28 @@ subtest mock => sub {
   is $cgroup->pid->max, '6', 'Correct pid.max set';
 
   my $cgroup2
-    = cgroupv2->from(path($ENV{MOJO_CGROUP_FS}, 'test', 'test2', 'test3'));
-
+    = cgroupv2->from(path($ENV{MOJO_CGROUP_FS}, 'test', 'test2', 'test3'))
+    ->create;
   is $cgroup2->name,   'test',        "Cgroup name matches";
   is $cgroup2->parent, 'test2/test3', "Cgroup parent matches";
-
   is $cgroup2->_cgroup,
-    path($ENV{MOJO_CGROUP_FS}, 'test', 'test2', 'test3')->to_string;
+    path($ENV{MOJO_CGROUP_FS}, 'test', 'test2', 'test3')->to_string,
+    'Cgroup path matches';
+
+  $cgroup2->controllers('+io +cpu');
+  is $cgroup2->controllers, '+io +cpu', 'Controllers set correctly';
+
+  $cgroup2->max_descendants('20');
+  is $cgroup2->max_descendants, '20', 'max_descendants set correctly';
+
+  $cgroup2->max_depths('30');
+  is $cgroup2->max_depths, '30', 'max_depths set correctly';
+
+
+  $cgroup2->_cgroup->child(
+    Mojo::IOLoop::ReadWriteProcess::CGroup::v2::STAT_INTERFACE())
+    ->spurt('test');
+  is $cgroup2->stat, 'test', 'Can get cgroup stats';
 };
 
 done_testing;
