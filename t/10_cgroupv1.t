@@ -71,9 +71,18 @@ subtest mock => sub {
   ok !$cgroup->contains_thread("30"), "Parent does not contain thread ID 30";
   ok !$cgroup->contains_thread("50"), "Parent does not contain thread ID 50";
 
-
   $cgroup->pid->max('6');
   is $cgroup->pid->max, '6', 'Correct pid.max set';
+
+  my $cgroup2
+    = cgroupv1->from(path($ENV{MOJO_CGROUP_FS}, 'test', 'test2', 'test3'));
+
+  is $cgroup2->name,       'test2', "Cgroup name matches";
+  is $cgroup2->controller, 'test',  "Cgroup controller matches";
+  is $cgroup2->parent,     'test3', "Cgroup controller matches";
+
+  is $cgroup2->_cgroup,
+    path($ENV{MOJO_CGROUP_FS}, 'test', 'test2', 'test3')->to_string;
 };
 
 done_testing;

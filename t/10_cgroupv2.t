@@ -107,6 +107,15 @@ subtest mock => sub {
 
   $cgroup->pid->max('6');
   is $cgroup->pid->max, '6', 'Correct pid.max set';
+
+  my $cgroup2
+    = cgroupv2->from(path($ENV{MOJO_CGROUP_FS}, 'test', 'test2', 'test3'));
+
+  is $cgroup2->name,   'test',        "Cgroup name matches";
+  is $cgroup2->parent, 'test2/test3', "Cgroup parent matches";
+
+  is $cgroup2->_cgroup,
+    path($ENV{MOJO_CGROUP_FS}, 'test', 'test2', 'test3')->to_string;
 };
 
 done_testing;
