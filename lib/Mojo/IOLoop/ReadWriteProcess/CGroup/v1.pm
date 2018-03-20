@@ -21,6 +21,9 @@ use Mojo::IOLoop::ReadWriteProcess::CGroup::v1::Cpuset;
 use Mojo::IOLoop::ReadWriteProcess::CGroup::v1::Netcls;
 use Mojo::IOLoop::ReadWriteProcess::CGroup::v1::Netprio;
 use Mojo::IOLoop::ReadWriteProcess::CGroup::v1::Freezer;
+use File::Spec::Functions 'splitdir';
+
+
 has controller => '';
 
 sub _cgroup {
@@ -35,6 +38,18 @@ sub child {
     name       => $_[0]->name,
     controller => $_[0]->controller,
     parent     => $_[0]->parent ? path($_[0]->parent, $_[1]) : $_[1])->create;
+}
+
+sub from {
+  my ($self, $string) = @_;
+  my $g = $self->_vfs;
+  $string =~ s/$g//;
+  my @p = splitdir($string);
+  shift @p;
+  my $controller = shift @p;
+  my $name       = shift @p;
+  return $_[0]
+    ->new(name => $name, controller => $controller, parent => path(@p));
 }
 
 has pid => sub {

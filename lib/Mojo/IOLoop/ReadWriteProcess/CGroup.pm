@@ -5,6 +5,7 @@ use Mojo::File 'path';
 
 use Mojo::IOLoop::ReadWriteProcess::CGroup::v1;
 use Mojo::IOLoop::ReadWriteProcess::CGroup::v2;
+use File::Spec::Functions 'splitdir';
 
 our @EXPORT_OK = qw(cgroupv2 cgroupv1);
 use Exporter 'import';
@@ -18,6 +19,16 @@ has [qw(name parent)];
 
 sub cgroupv2 { Mojo::IOLoop::ReadWriteProcess::CGroup::v2->new(@_)->create }
 sub cgroupv1 { Mojo::IOLoop::ReadWriteProcess::CGroup::v1->new(@_)->create }
+
+sub from {
+  my ($self, $string) = @_;
+  my $g = $self->_vfs;
+  $string =~ s/$g//;
+  my @p = splitdir($string);
+  shift @p;
+  my $name = shift @p;
+  return $_[0]->new(name => $name, parent => path(@p));
+}
 
 sub _cgroup {
   path($_[0]->parent ?
