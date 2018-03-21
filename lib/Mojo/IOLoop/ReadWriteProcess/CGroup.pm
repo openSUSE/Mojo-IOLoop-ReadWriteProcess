@@ -52,7 +52,12 @@ sub exists { -d $_[0]->_cgroup }
 
 sub _append { my $h = $_[0]->_cgroup->child($_[1])->open('>>'); print $h pop() }
 sub _write  { my $h = $_[0]->_cgroup->child($_[1])->open('>');  print $h pop() }
-sub _flag { my $f = pop; my $h = $_[1]->open('>'); print $h ($f == 0 ? 0 : 1) }
+
+sub _flag {
+  my $f = pop;
+  my $h = $_[0]->_cgroup->child($_[1])->open('>');
+  print $h ($f == 0 ? 0 : 1);
+}
 
 sub _appendln { shift->_append(shift() => pop() . "\n") }
 sub _list { my $c = shift->_cgroup->child(pop); $c->slurp if -e $c }
