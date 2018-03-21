@@ -116,9 +116,7 @@ has freezer => sub {
 };
 
 # CGroups process interface
-sub add_process {
-  $_[0]->_appendln($_[0]->_cgroup->child(PROCS_INTERFACE) => pop);
-}
+sub add_process { shift->_appendln(+PROCS_INTERFACE() => pop) }
 
 sub process_list { shift->_list(PROCS_INTERFACE) }
 sub processes    { c(shift->_listarray(PROCS_INTERFACE)) }
@@ -126,13 +124,23 @@ sub processes    { c(shift->_listarray(PROCS_INTERFACE)) }
 sub contains_process { shift->_contains(+PROCS_INTERFACE() => pop) }
 
 # CGroups thread interface
-sub add_thread {
-  $_[0]->_appendln($_[0]->_cgroup->child(TASKS_INTERFACE) => pop);
-}
+sub add_thread { shift->_appendln(+TASKS_INTERFACE() => pop) }
 
 sub thread_list { shift->_list(TASKS_INTERFACE) }
 
 sub contains_thread { shift->_contains(+TASKS_INTERFACE() => pop) }
+
+
+*CPU     = \&cpu;
+*MEMORY  = \&memory;
+*PID     = \&pid;
+*RDMA    = \&rdma;
+*DEVICES = \&devices;
+*FREEZER = \&freezer;
+*NETPRIO = \&netprio;
+*NETCLS  = \&netcls;
+*CPUSET  = \&cpuset;
+*CPUACCT = \&cpuacct;
 
 1;
 

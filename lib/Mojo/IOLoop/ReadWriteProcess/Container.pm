@@ -113,13 +113,9 @@ sub start {
   if (DEBUG) {
     $self->process->diag(
       "Starting container: " . $self->group . " " . $self->name);
-    $self->cgroups->each(
-      sub {
-
-        $self->process->diag("CGroups: " . $_->_cgroup);
-      });
+    $self->cgroups->each(sub { $self->process->diag("CGroups: " . $_->_cgroup) }
+    );
   }
-
 
   $self->process->start();
 }

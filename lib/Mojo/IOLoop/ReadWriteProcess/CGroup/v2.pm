@@ -63,9 +63,7 @@ has rdma => sub {
 };
 
 # CGroups process interface
-sub add_process {
-  $_[0]->_appendln($_[0]->_cgroup->child(PROCS_INTERFACE) => pop);
-}
+sub add_process { shift->_appendln(+PROCS_INTERFACE() => pop) }
 
 sub process_list { shift->_list(PROCS_INTERFACE) }
 sub processes    { c(shift->_listarray(PROCS_INTERFACE)) }
@@ -73,9 +71,7 @@ sub processes    { c(shift->_listarray(PROCS_INTERFACE)) }
 sub contains_process { shift->_contains(+PROCS_INTERFACE() => pop) }
 
 # CGroups thread interface
-sub add_thread {
-  $_[0]->_appendln($_[0]->_cgroup->child(THREADS_INTERFACE) => pop);
-}
+sub add_thread { shift->_appendln(+THREADS_INTERFACE() => pop) }
 
 sub thread_list { shift->_list(THREADS_INTERFACE) }
 
@@ -105,6 +101,8 @@ sub stat { shift->_list(+STAT_INTERFACE()) }
 *IO     = \&io;
 *CPU    = \&cpu;
 *MEMORY = \&memory;
+*PID    = \&pid;
+*RDMA   = \&rdma;
 
 1;
 

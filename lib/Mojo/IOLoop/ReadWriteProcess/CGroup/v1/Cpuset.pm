@@ -54,6 +54,7 @@ sub memory_pressure {
 sub sched_relax_domain_level {
   shift->cgroup->_flag(SCHED_RELAX_DOMAIN_LEVEL_INTERFACE, @_);
 }
+
 sub sched_load_balance {
   shift->cgroup->_flag(SCHED_LOAD_BALANCE_INTERFACE, @_);
 }
