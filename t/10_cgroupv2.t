@@ -109,12 +109,14 @@ subtest mock => sub {
 
   $cgroup->cpu->max('30');
   is $cgroup->cpu->max, '30', 'Correct cpu.max set';
-
-
-  $cgroup->memory->cgroup->_cgroup->child(
-    Mojo::IOLoop::ReadWriteProcess::CGroup::v2::Memory::STAT_INTERFACE())
+  $cgroup->cpu->weight('40');
+  is $cgroup->cpu->weight, '40', 'Correct cpu.weight set';
+  $cgroup->cpu->weight_nice('42');
+  is $cgroup->cpu->weight_nice, '42', 'Correct cpu.weight_nice set';
+  $cgroup->cpu->cgroup->_cgroup->child(
+    Mojo::IOLoop::ReadWriteProcess::CGroup::v2::CPU::STAT_INTERFACE())
     ->spurt('20');
-  is $cgroup->memory->stat, '20', 'Correct memory.stat set';
+  is $cgroup->cpu->stat, '20', 'Correct cpu.stat set';
 
   $cgroup->memory->cgroup->_cgroup->child(
     Mojo::IOLoop::ReadWriteProcess::CGroup::v2::Memory::EVENTS_INTERFACE())
