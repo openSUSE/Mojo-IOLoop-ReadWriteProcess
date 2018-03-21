@@ -124,6 +124,11 @@ subtest mock => sub {
   is $cgroup->memory->events, '230', 'Correct memory.events set';
 
   $cgroup->memory->cgroup->_cgroup->child(
+    Mojo::IOLoop::ReadWriteProcess::CGroup::v2::Memory::STAT_INTERFACE())
+    ->spurt('333');
+  is $cgroup->memory->stat, '333', 'Correct memory.stat set';
+
+  $cgroup->memory->cgroup->_cgroup->child(
     Mojo::IOLoop::ReadWriteProcess::CGroup::v2::Memory::CURRENT_INTERFACE())
     ->spurt('foo');
   is $cgroup->memory->current, 'foo', 'Correct memory.stat set';
