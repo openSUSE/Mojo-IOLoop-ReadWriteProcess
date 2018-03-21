@@ -99,17 +99,60 @@ subtest mock => sub {
   $cgroup->io->max('20');
   is $cgroup->io->max, '20', 'Correct io.max set';
 
+  $cgroup->io->weight('30');
+  is $cgroup->io->weight, '30', 'Correct io.weight set';
+
+  $cgroup->io->cgroup->_cgroup->child(
+    Mojo::IOLoop::ReadWriteProcess::CGroup::v2::IO::STAT_INTERFACE())
+    ->spurt('20');
+  is $cgroup->io->stat, '20', 'Correct io.max set';
+
   $cgroup->cpu->max('30');
   is $cgroup->cpu->max, '30', 'Correct cpu.max set';
 
+
+  $cgroup->memory->cgroup->_cgroup->child(
+    Mojo::IOLoop::ReadWriteProcess::CGroup::v2::Memory::STAT_INTERFACE())
+    ->spurt('20');
+  is $cgroup->memory->stat, '20', 'Correct memory.stat set';
+
+  $cgroup->memory->cgroup->_cgroup->child(
+    Mojo::IOLoop::ReadWriteProcess::CGroup::v2::Memory::EVENTS_INTERFACE())
+    ->spurt('230');
+  is $cgroup->memory->events, '230', 'Correct memory.events set';
+
+  $cgroup->memory->cgroup->_cgroup->child(
+    Mojo::IOLoop::ReadWriteProcess::CGroup::v2::Memory::CURRENT_INTERFACE())
+    ->spurt('foo');
+  is $cgroup->memory->current, 'foo', 'Correct memory.stat set';
+
+  $cgroup->memory->cgroup->_cgroup->child(
+    Mojo::IOLoop::ReadWriteProcess::CGroup::v2::Memory::SWAP_CURRENT_INTERFACE(
+    ))->spurt('bar');
+  is $cgroup->memory->swap_current, 'bar', 'Correct memory.stat set';
+
   $cgroup->memory->max('4');
   is $cgroup->memory->max, '4', 'Correct memory.max set';
+
+  $cgroup->memory->low('42');
+  is $cgroup->memory->low, '42', 'Correct memory.low set';
+
+  $cgroup->memory->swap_max('111');
+  is $cgroup->memory->swap_max, '111', 'Correct memory.swap_max set';
+
+  $cgroup->memory->high('420');
+  is $cgroup->memory->high, '420', 'Correct memory.high set';
 
   $cgroup->rdma->max('5');
   is $cgroup->rdma->max, '5', 'Correct rdma.max set';
 
   $cgroup->pid->max('6');
   is $cgroup->pid->max, '6', 'Correct pid.max set';
+
+  $cgroup->pid->cgroup->_cgroup->child(
+    Mojo::IOLoop::ReadWriteProcess::CGroup::v2::PID::CURRENT_INTERFACE())
+    ->spurt('test');
+  is $cgroup->pid->current, 'test', 'Can get cgroup max';
 
   my $cgroup2
     = cgroupv2->from(path($ENV{MOJO_CGROUP_FS}, 'test', 'test2', 'test3'))
@@ -134,6 +177,16 @@ subtest mock => sub {
     Mojo::IOLoop::ReadWriteProcess::CGroup::v2::STAT_INTERFACE())
     ->spurt('test');
   is $cgroup2->stat, 'test', 'Can get cgroup stats';
+
+
+  $cgroup2
+    = cgroupv2->from(path($ENV{MOJO_CGROUP_FS}, 'test', 'test2', 'test3'));
+
+  is $cgroup2->name,   'test',        "Cgroup name matches";
+  is $cgroup2->parent, 'test2/test3', "Cgroup controller matches";
+
+  is $cgroup2->_cgroup,
+    path($ENV{MOJO_CGROUP_FS}, 'test', 'test2', 'test3')->to_string;
 };
 
 done_testing;
