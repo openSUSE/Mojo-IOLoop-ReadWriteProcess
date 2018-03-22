@@ -126,6 +126,8 @@ sub is_running { shift->process->is_running }
 
 sub wait_stop { shift->process->wait_stop }
 
+sub wait { shift->process->wait }
+
 =encoding utf-8
 
 =head1 NAME
