@@ -170,6 +170,20 @@ subtest mock => sub {
     path($ENV{MOJO_CGROUP_FS}, 'test', 'test2', 'test3')->to_string,
     'Cgroup path matches';
 
+  my $cgroup3 = cgroupv2->from(path('/test', 'test2', 'test3'))->create;
+  is $cgroup3->name,   'test',        "Cgroup name matches";
+  is $cgroup3->parent, 'test2/test3', "Cgroup parent matches";
+  is $cgroup3->_cgroup,
+    path($ENV{MOJO_CGROUP_FS}, 'test', 'test2', 'test3')->to_string,
+    'Cgroup path matches';
+
+  my $cgroup4 = cgroupv2->from(path('test', 'test2', 'test3'))->create;
+  is $cgroup4->name,   'test',        "Cgroup name matches";
+  is $cgroup4->parent, 'test2/test3', "Cgroup parent matches";
+  is $cgroup4->_cgroup,
+    path($ENV{MOJO_CGROUP_FS}, 'test', 'test2', 'test3')->to_string,
+    'Cgroup path matches';
+
   $cgroup2->controllers('+io +cpu');
   is $cgroup2->controllers, '+io +cpu', 'Controllers set correctly';
 

@@ -25,7 +25,8 @@ sub from {
   my $g = $self->_vfs;
   $string =~ s/$g//;
   my @p = splitdir($string);
-  shift @p;
+  my $g = substr $string, 0, 1;
+  shift @p if $g eq '/';
   my $name = shift @p;
   return $_[0]->new(name => $name, parent => path(@p));
 }
