@@ -45,8 +45,8 @@ sub from {
   my $g = $self->_vfs;
   $string =~ s/$g//;
   my @p = splitdir($string);
-  my $g = substr $string, 0, 1;
-  shift @p if $g eq '/';
+  my $pre = substr $string, 0, 1;
+  shift @p if $pre eq '/';
   my $controller = shift @p;
   my $name       = shift @p;
   return $_[0]
