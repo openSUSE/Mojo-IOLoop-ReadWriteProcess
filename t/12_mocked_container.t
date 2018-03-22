@@ -15,6 +15,40 @@ use Mojo::IOLoop::ReadWriteProcess::Test::Utils qw(attempt);
 use Mojo::IOLoop::ReadWriteProcess::CGroup qw(cgroupv2 cgroupv1);
 use Mojo::IOLoop::ReadWriteProcess::Container qw(container);
 
+sub mock_test {
+  my $c = shift;
+  my @pids;
+  my $fired;
+  $c->session->on(register => sub { push(@pids, shift) });
+  $c->once(stop => sub { $fired++ });
+  $c->start();
+
+  my $p       = $c->process();
+  my $cgroups = $c->cgroups;
+  is $cgroups->first->process_list, $p->pid . "\n",
+    "procs interface contains the added pids"
+    or diag explain $cgroups->first->process_list;
+
+  ok $cgroups->first->contains_process($p->pid),
+    "Parent contains pid " . $p->pid;
+
+  attempt {
+    attempts  => 20,
+    condition => sub { !$c->is_running },
+    cb        => sub { sleep 1; }
+  };
+
+  $c->wait_stop();
+  is $cgroups->first->process_list, $p->pid . "\n"
+    or die diag explain $cgroups->first->process_list;
+
+  unlink $cgroups->first->_cgroup
+    ->child(Mojo::IOLoop::ReadWriteProcess::CGroup::v1::PROCS_INTERFACE);
+  $cgroups->first->remove();
+  ok !$cgroups->first->exists();
+  is $fired, 1;
+}
+
 subtest container => sub {
 
   eval { container(process => 2)->start(); };
@@ -99,6 +133,32 @@ subtest container_2 => sub {
   $cgroups->first->remove();
   ok !$cgroups->first->exists();
   is $fired, 1;
+  $c->stop;
+
+  is $c->is_running, 0;
 };
+
+subtest container_3 => sub {
+  use Mojo::Collection 'c';
+  mock_test(
+    container(
+      subreaper => 1,
+      cgroups => cgroupv1(controller => 'pids', name => 'group')->child('test'),
+      group   => "group",
+      name    => "test",
+      process => process(sub { sleep 5 }),
+    ));
+  mock_test(
+    container(
+      subreaper => 1,
+      cgroups =>
+        c(cgroupv1(controller => 'pids', name => 'group')->child('test')),
+      group   => "group",
+      name    => "test",
+      process => process(sub { sleep 5 }),
+    ));
+};
+
+
 
 done_testing;
