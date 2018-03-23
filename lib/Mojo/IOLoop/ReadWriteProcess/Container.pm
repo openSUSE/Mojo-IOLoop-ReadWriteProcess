@@ -25,6 +25,9 @@ has session       => sub { Mojo::IOLoop::ReadWriteProcess::Session->singleton };
 has pid_isolation => sub { 0 };
 has unshare       => undef;
 has subreaper     => 0;
+has pre_migrate   => 0;
+has clean_cgroup  => 0;
+
 use constant DEBUG => $ENV{MOJO_PROCESS_DEBUG};
 
 sub container { __PACKAGE__->new(@_) }
@@ -34,6 +37,11 @@ sub new {
   $self->cgroups(c($self->cgroups))
     unless blessed $self->cgroups && $self->cgroups->isa('Mojo::Collection');
   $self;
+}
+
+sub migrate_process {
+  my $p = pop();
+  shift->cgroups->each(sub { shift->add_process($p) });
 }
 
 sub start {
@@ -59,7 +67,7 @@ sub start {
   $self->unshare(CLONE_NEWPID | CLONE_NEWNS) if $self->pid_isolation;
   $self->process->once(
     start => sub {
-      $self->cgroups->each(sub { shift->add_process($self->process->pid) });
+      $self->migrate_process($self->process->pid);
     });
 
   $self->process->once(
@@ -76,7 +84,7 @@ sub start {
               $self->session->register($pid => $p);
               $p->stop();
             });
-          $_[0]->remove();
+          $_[0]->remove() if $self->clean_cgroup;
         });
     });
 
@@ -84,6 +92,9 @@ sub start {
   $self->process->once(start => sub { shift; $self->emit(start => @_) });
 
   my $fn = $self->process->code();
+
+  $self->process->code(sub { $self->migrate_process($$); $fn->(@_) })
+    if $self->pre_migrate;
 
   $self->process->code(
     sub {
