@@ -23,8 +23,15 @@ sub mock_test {
   $c->once(stop => sub { $fired++ });
   $c->start();
 
-  my $p       = $c->process();
   my $cgroups = $c->cgroups;
+
+  attempt {
+    attempts  => 20,
+    condition => sub { defined $cgroups->first->process_list },
+    cb        => sub { sleep 1; }
+  };
+
+  my $p = $c->process();
   is $cgroups->first->process_list, $p->pid . "\n",
     "procs interface contains the added pids"
     or diag explain $cgroups->first->process_list;
@@ -148,15 +155,19 @@ subtest container_3 => sub {
       name    => "test",
       process => process(sub { sleep 5 }),
     ));
+  my $t_cgroup = cgroupv1(controller => 'pids', name => 'group')->child('test');
   mock_test(
     container(
-      subreaper => 1,
-      cgroups =>
-        c(cgroupv1(controller => 'pids', name => 'group')->child('test')),
-      group   => "group",
-      name    => "test",
-      process => process(sub { sleep 5 }),
+      subreaper    => 1,
+      pre_migrate  => 1,
+      clean_cgroup => 1,
+      cgroups      => c($t_cgroup),
+      group        => "group",
+      name         => "test",
+      process      => process(sub { sleep 5 }),
     ));
+
+  ok !$t_cgroup->exists();
 };
 
 

@@ -68,7 +68,7 @@ sub start {
   $self->process->once(
     start => sub {
       $self->migrate_process($self->process->pid);
-    });
+    }) unless $self->pre_migrate;
 
   $self->process->once(
     stop => sub {
