@@ -66,7 +66,7 @@ sub start {
     stop => sub {
       $self->cgroups->each(
         sub {
-          shift->processes->each(
+          $_[0]->processes->each(
             sub {
               my $pid = shift;
               my $p   = Mojo::IOLoop::ReadWriteProcess->new(
@@ -76,7 +76,7 @@ sub start {
               $self->session->register($pid => $p);
               $p->stop();
             });
-
+          $_[0]->remove();
         });
     });
 
@@ -117,7 +117,11 @@ sub start {
     );
   }
 
-  $self->process->start();
+  local ($@, $!);
+  eval { $self->process->start(); };
+  $self->emit(container_error => [$@, $!]) if $@;
+
+  $self;
 }
 
 sub stop { shift->emit('stop')->process->stop() }
