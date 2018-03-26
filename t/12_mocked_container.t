@@ -246,11 +246,12 @@ subtest container_3 => sub {
 
   mock_test(
     container(
-      pre_migrate  => 1,
-      clean_cgroup => 1,
-      group        => "group",
-      name         => "test",
-      process      => process(
+      pre_migrate   => 1,
+      pid_isolation => 1,
+      clean_cgroup  => 1,
+      group         => "group",
+      name          => "test",
+      process       => process(
         sub { sleep 5; Devel::Cover::report() if Devel::Cover->can('report'); }
       ),
     ));
