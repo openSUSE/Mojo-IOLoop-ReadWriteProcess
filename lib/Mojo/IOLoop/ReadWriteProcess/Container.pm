@@ -158,7 +158,7 @@ Mojo::IOLoop::ReadWriteProcess::Container - Start Mojo::IOLoop::ReadWriteProcess
     use Mojo::IOLoop::ReadWriteProcess::Container qw(container);
 
     my $container = container(
-      pid_isolation => 1,  # Best-effort, as depends on where you run it (you need root privs)
+      pid_isolation => 1,  # Best-effort, as depends on where you run it (you need CAP_SYS_ADMIN)
       subreaper => 1,
       group   => "my_org",
       name    => "my_process",
@@ -195,7 +195,7 @@ Mojo::IOLoop::ReadWriteProcess::Container - Start Mojo::IOLoop::ReadWriteProcess
 =head1 DESCRIPTION
 
 This module uses features that are only available on Linux,
-and requires cgroups and capability for unshare syscalls to achieve pid isolation.
+and requires cgroups and capability (CAP_SYS_ADMIN) for unshare syscalls to achieve pid isolation.
 
 =head1 METHODS
 
@@ -243,6 +243,16 @@ It also registers all the unknown processes to the current L<Mojo::IOLoop::ReadW
     $c->wait_stop();
 
 Wait before stopping the container.
+
+=head2 wait
+
+    use Mojo::IOLoop::ReadWriteProcess::Container qw(container);
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+
+    my $c = container( name=>"test", process => process(sub { print "Hello!" }))->start;
+    $c->wait();
+
+Wait the container to stop
 
 =head1 LICENSE
 
