@@ -98,6 +98,8 @@ sub start {
 
   $self->process->code(
     sub {
+      $self->migrate_process($$) if $self->pre_migrate;
+
       if ( $self->unshare & CLONE_NEWPID
         && $self->namespace->unshare($self->unshare) == 0)
       {
@@ -112,13 +114,15 @@ sub start {
             $fn->(@_);
           });
         $init->start()->wait_stop;
-        return $init->return_status if defined $init->return_status;
+
+        #return $init->return_status if defined $init->return_status;
         $init->_exit($init->exit_status);
       }
-      else {
+      elsif ($self->namespace->unshare($self->unshare) != 0) {
         warn "Unshare failed";
-        $fn->(@_);
       }
+
+      $fn->(@_);
     }) if defined $self->unshare;
 
   if (DEBUG) {
