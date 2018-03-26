@@ -43,7 +43,7 @@ subtest belongs => sub {
 
   attempt {
     attempts  => 20,
-    condition => sub { $cgroup->process_list eq ''},
+    condition => sub { $cgroup->process_list eq '' },
     cb        => sub { sleep 1; }
   };
 
@@ -157,7 +157,7 @@ subtest container_pid_isolation => sub {
 
   attempt {
     attempts  => 20,
-    condition => sub { $cgroups->first->processes->size == 6 },
+    condition => sub { $cgroups->first->processes->size == 7 },
     cb        => sub { sleep 1; }
   };
 
@@ -226,11 +226,13 @@ subtest container_no_pid_isolation => sub {
 
   attempt {
     attempts  => 20,
-    condition => sub { $cgroup->processes->size == 5 },
+    condition => sub { $cgroup->processes->size == 6 },
     cb        => sub { sleep 1; }
   };
+  is $cgroup->processes->size, 6 or diag explain $cgroup->process_list;
 
   $c->stop();
+  is $cgroup->processes->size, 0;
   is $cgroup->process_list, '' or die diag explain $cgroup->process_list;
   $cgroup->remove();
   is scalar(@pids), 5 or diag explain \@pids;
