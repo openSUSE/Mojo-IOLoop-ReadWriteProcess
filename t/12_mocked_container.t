@@ -187,6 +187,34 @@ subtest container_3 => sub {
         sub { sleep 5; Devel::Cover::report() if Devel::Cover->can('report'); }
       ),
     ));
+
+  mock_test(
+    container(
+      unshare      => 1,
+      pre_migrate  => 1,
+      clean_cgroup => 1,
+      group        => "group",
+      name         => "test",
+      process      => process(
+        sub { sleep 5; Devel::Cover::report() if Devel::Cover->can('report'); }
+      ),
+    ));
+
+
+  my $c = container(
+    pid_isolation => 1,
+    pre_migrate   => 1,
+    clean_cgroup  => 1,
+    group         => "group",
+    name          => "test",
+    process       => process(
+      sub { sleep 5; Devel::Cover::report() if Devel::Cover->can('report'); }
+    ),
+  );
+
+  mock_test($c);
+
+  ok $c->process->errored;
 };
 
 
