@@ -14,6 +14,8 @@ use Mojo::IOLoop::ReadWriteProcess qw(process);
 use Mojo::IOLoop::ReadWriteProcess::Test::Utils qw(attempt);
 use Mojo::IOLoop::ReadWriteProcess::CGroup qw(cgroupv2 cgroupv1);
 use Mojo::IOLoop::ReadWriteProcess::Container qw(container);
+use Mojo::Util 'monkey_patch';
+use Mojo::IOLoop::ReadWriteProcess::Namespace;
 
 sub mock_test {
   my $c = shift;
@@ -190,7 +192,6 @@ subtest container_3 => sub {
 
   mock_test(
     container(
-      unshare      => 1,
       pre_migrate  => 1,
       clean_cgroup => 1,
       group        => "group",
@@ -215,6 +216,44 @@ subtest container_3 => sub {
   mock_test($c);
 
   ok $c->process->errored;
+
+  monkey_patch "Mojo::IOLoop::ReadWriteProcess::Namespace",
+    unshare => sub { 0 };
+
+  is Mojo::IOLoop::ReadWriteProcess::Namespace::unshare(1), 0;
+  mock_test(
+    container(
+      unshare      => Mojo::IOLoop::ReadWriteProcess::Namespace::CLONE_NEWIPC,
+      clean_cgroup => 1,
+      group        => "group",
+      name         => "test",
+      process      => process(
+        sub { sleep 5; Devel::Cover::report() if Devel::Cover->can('report'); }
+      ),
+    ));
+
+  mock_test(
+    container(
+      unshare      => 0,
+      pre_migrate  => 1,
+      clean_cgroup => 1,
+      group        => "group",
+      name         => "test",
+      process      => process(
+        sub { sleep 5; Devel::Cover::report() if Devel::Cover->can('report'); }
+      ),
+    ));
+
+  mock_test(
+    container(
+      pre_migrate  => 1,
+      clean_cgroup => 1,
+      group        => "group",
+      name         => "test",
+      process      => process(
+        sub { sleep 5; Devel::Cover::report() if Devel::Cover->can('report'); }
+      ),
+    ));
 };
 
 
