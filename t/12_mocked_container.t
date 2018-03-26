@@ -67,7 +67,8 @@ qr/You need either to pass a Mojo::IOLoop::ReadWriteProcess object or a callback
     subreaper => 1,
     group     => "group",
     name      => "test",
-    process   => sub { sleep 5 },
+    process =>
+      sub { sleep 5; Devel::Cover::report() if Devel::Cover->can('report'); },
   );
 
   my @pids;
@@ -107,7 +108,9 @@ subtest container_2 => sub {
     subreaper => 1,
     group     => "group",
     name      => "test",
-    process   => process(sub { sleep 5 }),
+    process   => process(
+      sub { sleep 5; Devel::Cover::report() if Devel::Cover->can('report'); }
+    ),
   );
 
   my @pids;
@@ -153,7 +156,9 @@ subtest container_3 => sub {
       cgroups => cgroupv1(controller => 'pids', name => 'group')->child('test'),
       group   => "group",
       name    => "test",
-      process => process(sub { sleep 5 }),
+      process => process(
+        sub { sleep 5; Devel::Cover::report() if Devel::Cover->can('report'); }
+      ),
     ));
   my $t_cgroup = cgroupv1(controller => 'pids', name => 'group')->child('test');
   mock_test(
@@ -164,10 +169,24 @@ subtest container_3 => sub {
       cgroups      => c($t_cgroup),
       group        => "group",
       name         => "test",
-      process      => process(sub { sleep 5 }),
+      process      => process(
+        sub { sleep 5; Devel::Cover::report() if Devel::Cover->can('report'); }
+      ),
     ));
 
   ok !$t_cgroup->exists();
+
+  mock_test(
+    container(
+      unshare      => 0,
+      pre_migrate  => 1,
+      clean_cgroup => 1,
+      group        => "group",
+      name         => "test",
+      process      => process(
+        sub { sleep 5; Devel::Cover::report() if Devel::Cover->can('report'); }
+      ),
+    ));
 };
 
 
