@@ -151,11 +151,12 @@ sub wait { shift->process->wait }
 
 =head1 NAME
 
-Mojo::IOLoop::ReadWriteProcess::Container - Start Mojo::IOLoop::ReadWriteProcess as containers.
+Mojo::IOLoop::ReadWriteProcess::Container - (kinda) Pure Perl containers.
 
 =head1 SYNOPSIS
 
     use Mojo::IOLoop::ReadWriteProcess::Container qw(container);
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
 
     my $container = container(
       pid_isolation => 1,  # Best-effort, as depends on where you run it (you need CAP_SYS_ADMIN)
@@ -194,8 +195,43 @@ Mojo::IOLoop::ReadWriteProcess::Container - Start Mojo::IOLoop::ReadWriteProcess
 
 =head1 DESCRIPTION
 
-This module uses features that are only available on Linux,
-and requires cgroups and capability (CAP_SYS_ADMIN) for unshare syscalls to achieve pid isolation.
+L<Mojo::IOLoop::ReadWriteProcess::Container> ties anonymous functions or L<Mojo::IOLoop::ReadWriteProcess> object to differents
+set of L<Mojo::IOLoop::ReadWriteProcess::Cgroup> implementations.
+
+When the C<pid_isolation> attribute is set, it needs special permissions (CAP_SYS_ADMIN capabilities).
+This module uses features that are only available on Linux, and requires cgroups and capability (CAP_SYS_ADMIN) for unshare syscalls to achieve pid isolation.
+
+=head1 EVENTS
+
+L<Mojo::IOLoop::ReadWriteProcess> inherits all events from L<Mojo::EventEmitter> and can emit
+the following new ones.
+
+=head2 start
+
+ $container->on(start => sub {
+   my ($process) = @_;
+    ...
+ });
+
+Emitted when the container starts.
+
+=head2 stop
+
+ $container->on(stop => sub {
+   my ($container) = @_;
+   ...
+ });
+
+Emitted when the container stops.
+
+=head2 process_error
+
+ $container->on(container_error => sub {
+   my ($e) = @_;
+   my @errors = @{$e};
+ });
+
+Emitted when the container produce errors.
 
 =head1 METHODS
 
@@ -211,7 +247,7 @@ the following new ones.
     $c->start();
 
 Starts the container, it's main process is a L<Mojo::IOLoop::ReadWriteProcess>,
-contained in the C<process()> attribute.
+contained in the C<process()> attribute. On stop it will terminate every process included in the L<cgroups> attribute.
 
 =head2 is_running
 
@@ -253,6 +289,151 @@ Wait before stopping the container.
     $c->wait();
 
 Wait the container to stop
+
+=head2 migrate_process
+
+    use Mojo::IOLoop::ReadWriteProcess::Container qw(container);
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+
+    my $c = container( name=>"test", process => process(sub { print "Hello!" }))->start;
+    $c->migrate_process(42);
+
+Migrate the given process to the container cgroup.
+
+=head1 ATTRIBUTES
+
+L<Mojo::IOLoop::ReadWriteProcess::Container> inherits all attributes from L<Mojo::EventEmitter> and implements
+the following new ones.
+
+=head2 pid_isolation
+
+    use Mojo::IOLoop::ReadWriteProcess::Container qw(container);
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+    use Mojo::IOLoop::ReadWriteProcess::CGroup qw(cgroupv1);
+    use Mojo::Collection 'c';
+
+    my $container = container( pid_isolation => 1, process => process(sub { print "Hello!" }) );
+
+    $container->session->on(register => sub { ... });
+    $container->start();
+
+If set, the process will see itself as PID 1. It needs CAP_SYS_ADMIN capabilities set on the executable (or run as root).
+
+=head2 pre_migrate
+
+    use Mojo::IOLoop::ReadWriteProcess::Container qw(container);
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+
+    my $container = container( pre_migrate => 1, process => process(sub { print "Hello!" }) );
+
+    $container->session->on(register => sub { ... });
+    $container->start();
+
+If set, the process will migrate itself into the cgroup.
+
+=head2 clean_cgroup
+
+    use Mojo::IOLoop::ReadWriteProcess::Container qw(container);
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+
+    my $container = container( clean_cgroup => 1, process => process(sub { print "Hello!" }) );
+
+    $container->session->on(register => sub { ... });
+    $container->start();
+
+If set, attempts to destroy the cgroup after the process terminated its execution.
+
+=head2 subreaper
+
+    use Mojo::IOLoop::ReadWriteProcess::Container qw(container);
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+
+    my $c = container(subreaper => 1, name=>"test", process => process(sub { print "Hello!" }));
+    $c->start();
+
+Enable subreaper mode inside the child process.
+
+=head2 process
+
+    use Mojo::IOLoop::ReadWriteProcess::Container qw(container);
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+
+    my $c = container(process => process(sub { print "Hello!" }));
+    my $c = container(process => sub { print "Hello!" });
+
+    $c->start();
+
+The process to run. It can be an anonymous function or a L<Mojo::IOLoop::ReadWriteProcess> object.
+
+=head2 namespace
+
+    use Mojo::IOLoop::ReadWriteProcess::Container qw(container);
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+
+    my $c = container(process => process(sub { print "Hello!" }));
+    $c->namespace->unshare(0); # All
+    $c->start();
+
+Set/Return L<Mojo::IOLoop::ReadWriteProcess::Namespace> object. It's main use is to invoke syscalls.
+
+=head2 session
+
+    use Mojo::IOLoop::ReadWriteProcess::Container qw(container);
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+
+    my $c = container(process => process(sub { print "Hello!" }));
+    $c->session->on(register => sub { ... });
+    $c->start();
+
+Returns/Set the L<Mojo::IOLoop::ReadWriteProcess::Session> singleton object.
+
+=head2 unshare
+
+    use Mojo::IOLoop::ReadWriteProcess::Container qw(container);
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+    use Mojo::IOLoop::ReadWriteProcess::Namespace qw( CLONE_NEWPID CLONE_NEWNS );
+
+    my $c = container( unshare=> CLONE_NEWPID | CLONE_NEWNS, process => process(sub { print "Hello!" }) );
+    $c->session->on(register => sub { ... });
+    $c->start();
+
+Returns/Set the unshare syscall options. See man unshare(2) for further documentation.
+
+=head2 cgroups
+
+    use Mojo::IOLoop::ReadWriteProcess::Container qw(container);
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+    use Mojo::IOLoop::ReadWriteProcess::CGroup qw(cgroupv1);
+    use Mojo::Collection 'c';
+
+    my $container = container(process => process(sub { print "Hello!" }));
+    $container->cgroups( c(cgroupv1(controller => 'pids'), cgroupv1(controller => 'memory')) );
+
+    $container->session->on(register => sub { ... });
+    $container->start();
+
+Returns/Set a L<Mojo::Collection> collection of CGroups where the process should belong to.
+If used with a single CGroup, you don't need to pass the L<Mojo::Collection>  object:
+
+    use Mojo::IOLoop::ReadWriteProcess::Container qw(container);
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+    use Mojo::IOLoop::ReadWriteProcess::CGroup qw(cgroupv1);
+    use Mojo::Collection 'c';
+
+    my $container = container(cgroups=> cgroupv1(controller => 'pids'), process => sub { print "Hello!" });
+
+    $container->session->on(register => sub { ... });
+    $container->start();
+
+=head1 DEBUGGING
+
+You can set the MOJO_EVENTEMITTER_DEBUG environment variable to get some advanced diagnostics information printed to STDERR.
+
+    MOJO_EVENTEMITTER_DEBUG=1
+
+Also, you can set MOJO_PROCESS_DEBUG environment variable to get diagnostics about the process execution.
+
+    MOJO_PROCESS_DEBUG=1
 
 =head1 LICENSE
 
