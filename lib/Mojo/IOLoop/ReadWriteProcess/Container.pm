@@ -165,6 +165,7 @@ Mojo::IOLoop::ReadWriteProcess::Container - (kinda) Pure Perl containers.
       name    => "my_process",
       process => process(
         sub {
+          # Exec, fork ..
           process(sub { warn "\o/"; sleep 42;  })->start;
           process(sub { warn "\o/"; sleep 42; })->start;
           process(
@@ -188,15 +189,15 @@ Mojo::IOLoop::ReadWriteProcess::Container - (kinda) Pure Perl containers.
     $container->is_running;
     $container->stop;
 
-    my @procs = $container->cgroup->processes;
-    $container->cgroup->pid->max(300);
+    my @procs = $container->cgroups->first->processes;
+    $container->cgroups->first->pid->max(300);
 
     $container->process->on(stop => sub { print "Main container process stopped!" });
 
 =head1 DESCRIPTION
 
-L<Mojo::IOLoop::ReadWriteProcess::Container> ties anonymous functions or L<Mojo::IOLoop::ReadWriteProcess> object to differents
-set of L<Mojo::IOLoop::ReadWriteProcess::Cgroup> implementations.
+L<Mojo::IOLoop::ReadWriteProcess::Container> ties anonymous functions or a L<Mojo::IOLoop::ReadWriteProcess> object to differents
+sets of L<Mojo::IOLoop::ReadWriteProcess::CGroup> implementations.
 
 When the C<pid_isolation> attribute is set, it needs special permissions (CAP_SYS_ADMIN capabilities).
 This module uses features that are only available on Linux, and requires cgroups and capability (CAP_SYS_ADMIN) for unshare syscalls to achieve pid isolation.
@@ -243,7 +244,7 @@ the following new ones.
     use Mojo::IOLoop::ReadWriteProcess::Container qw(container);
     use Mojo::IOLoop::ReadWriteProcess qw(process);
 
-    my $c = container( name=>"test", process => process(sub { print "Hello!" }));
+    my $c = container( name=>"test", process => sub { print "Hello!" });
     $c->start();
 
 Starts the container, it's main process is a L<Mojo::IOLoop::ReadWriteProcess>,
@@ -254,7 +255,7 @@ contained in the C<process()> attribute. On stop it will terminate every process
     use Mojo::IOLoop::ReadWriteProcess::Container qw(container);
     use Mojo::IOLoop::ReadWriteProcess qw(process);
 
-    my $c = container( name=>"test", process => process(sub { print "Hello!" }));
+    my $c = container( name=>"test", process => sub { print "Hello!" });
     $c->is_running();
 
 Returns 1 if the container is running.
@@ -264,7 +265,7 @@ Returns 1 if the container is running.
     use Mojo::IOLoop::ReadWriteProcess::Container qw(container);
     use Mojo::IOLoop::ReadWriteProcess qw(process);
 
-    my $c = container( name=>"test", process => process(sub { print "Hello!" }))->start;
+    my $c = container( name=>"test", process => sub { print "Hello!" })->start;
     $c->stop();
 
 Stops the container and kill all the processes belonging to the cgroup.
@@ -275,7 +276,7 @@ It also registers all the unknown processes to the current L<Mojo::IOLoop::ReadW
     use Mojo::IOLoop::ReadWriteProcess::Container qw(container);
     use Mojo::IOLoop::ReadWriteProcess qw(process);
 
-    my $c = container( name=>"test", process => process(sub { print "Hello!" }))->start;
+    my $c = container( name=>"test", process => sub { print "Hello!" })->start;
     $c->wait_stop();
 
 Wait before stopping the container.
@@ -285,7 +286,7 @@ Wait before stopping the container.
     use Mojo::IOLoop::ReadWriteProcess::Container qw(container);
     use Mojo::IOLoop::ReadWriteProcess qw(process);
 
-    my $c = container( name=>"test", process => process(sub { print "Hello!" }))->start;
+    my $c = container( name=>"test", process => sub { print "Hello!" })->start;
     $c->wait();
 
 Wait the container to stop
@@ -295,7 +296,7 @@ Wait the container to stop
     use Mojo::IOLoop::ReadWriteProcess::Container qw(container);
     use Mojo::IOLoop::ReadWriteProcess qw(process);
 
-    my $c = container( name=>"test", process => process(sub { print "Hello!" }))->start;
+    my $c = container( name=>"test", process => sub { print "Hello!" })->start;
     $c->migrate_process(42);
 
 Migrate the given process to the container cgroup.
@@ -305,6 +306,51 @@ Migrate the given process to the container cgroup.
 L<Mojo::IOLoop::ReadWriteProcess::Container> inherits all attributes from L<Mojo::EventEmitter> and implements
 the following new ones.
 
+=head2 name
+
+    use Mojo::IOLoop::ReadWriteProcess::Container qw(container);
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+    use Mojo::IOLoop::ReadWriteProcess::CGroup qw(cgroupv1);
+    use Mojo::Collection 'c';
+
+    my $container = container( name => "test", process => sub { print "Hello!" } );
+
+    $container->session->on(register => sub { ... });
+    $container->start();
+
+Sets the container name. It creates in the indicated (or default) cgroups a sub-tree with the container name.
+
+This means that cgroups settings can be done also outside of the container object:
+
+    use Mojo::IOLoop::ReadWriteProcess::CGroup qw(cgroupv1);
+    use Mojo::IOLoop::ReadWriteProcess::Container qw(container);
+
+    my $container = container( name => "test", process => sub { print "Hello!" } );
+
+    cgroupv1->from($continer->cgroups->first->_group)->pid->max(100);
+
+As cgroups are represented by path, you can set options directly from controllers objects that are pointing to the same cgroup slice.
+
+=head2 group
+
+    use Mojo::IOLoop::ReadWriteProcess::Container qw(container);
+    use Mojo::IOLoop::ReadWriteProcess qw(process);
+    use Mojo::IOLoop::ReadWriteProcess::CGroup qw(cgroupv2);
+    use Mojo::Collection 'c';
+
+    my $container = container( name => "bar", group => "foo", process => sub { print "Hello!" } );
+    my $container2 = container( name => "bar2", group => "foo", process => sub { print "Hello!" } );
+
+    $container->start();
+    $container2->start();
+
+    my $group_cgroup = cgroupv2->from($container2->cgroups->first->parent);
+
+    $group_cgroup->pid->max(200);
+
+Sets the container group. If containers are sharing the same group they will inherit the same CGroup parent path,
+in such way it is possible to create controllers pointing to it and set specific options for the whole group.
+
 =head2 pid_isolation
 
     use Mojo::IOLoop::ReadWriteProcess::Container qw(container);
@@ -312,7 +358,7 @@ the following new ones.
     use Mojo::IOLoop::ReadWriteProcess::CGroup qw(cgroupv1);
     use Mojo::Collection 'c';
 
-    my $container = container( pid_isolation => 1, process => process(sub { print "Hello!" }) );
+    my $container = container( pid_isolation => 1, process => sub { print "Hello!" } );
 
     $container->session->on(register => sub { ... });
     $container->start();
@@ -324,7 +370,7 @@ If set, the process will see itself as PID 1. It needs CAP_SYS_ADMIN capabilitie
     use Mojo::IOLoop::ReadWriteProcess::Container qw(container);
     use Mojo::IOLoop::ReadWriteProcess qw(process);
 
-    my $container = container( pre_migrate => 1, process => process(sub { print "Hello!" }) );
+    my $container = container( pre_migrate => 1, process => sub { print "Hello!" } );
 
     $container->session->on(register => sub { ... });
     $container->start();
@@ -336,7 +382,7 @@ If set, the process will migrate itself into the cgroup.
     use Mojo::IOLoop::ReadWriteProcess::Container qw(container);
     use Mojo::IOLoop::ReadWriteProcess qw(process);
 
-    my $container = container( clean_cgroup => 1, process => process(sub { print "Hello!" }) );
+    my $container = container( clean_cgroup => 1, process => sub { print "Hello!" });
 
     $container->session->on(register => sub { ... });
     $container->start();
@@ -348,7 +394,7 @@ If set, attempts to destroy the cgroup after the process terminated its executio
     use Mojo::IOLoop::ReadWriteProcess::Container qw(container);
     use Mojo::IOLoop::ReadWriteProcess qw(process);
 
-    my $c = container(subreaper => 1, name=>"test", process => process(sub { print "Hello!" }));
+    my $c = container(subreaper => 1, name=>"test", process => sub { print "Hello!" });
     $c->start();
 
 Enable subreaper mode inside the child process.
@@ -358,7 +404,7 @@ Enable subreaper mode inside the child process.
     use Mojo::IOLoop::ReadWriteProcess::Container qw(container);
     use Mojo::IOLoop::ReadWriteProcess qw(process);
 
-    my $c = container(process => process(sub { print "Hello!" }));
+    my $c = container(process => sub { print "Hello!" });
     my $c = container(process => sub { print "Hello!" });
 
     $c->start();
@@ -370,7 +416,7 @@ The process to run. It can be an anonymous function or a L<Mojo::IOLoop::ReadWri
     use Mojo::IOLoop::ReadWriteProcess::Container qw(container);
     use Mojo::IOLoop::ReadWriteProcess qw(process);
 
-    my $c = container(process => process(sub { print "Hello!" }));
+    my $c = container(process => sub { print "Hello!" });
     $c->namespace->unshare(0); # All
     $c->start();
 
@@ -393,7 +439,7 @@ Returns/Set the L<Mojo::IOLoop::ReadWriteProcess::Session> singleton object.
     use Mojo::IOLoop::ReadWriteProcess qw(process);
     use Mojo::IOLoop::ReadWriteProcess::Namespace qw( CLONE_NEWPID CLONE_NEWNS );
 
-    my $c = container( unshare=> CLONE_NEWPID | CLONE_NEWNS, process => process(sub { print "Hello!" }) );
+    my $c = container( unshare=> CLONE_NEWPID | CLONE_NEWNS, process => sub { print "Hello!" } );
     $c->session->on(register => sub { ... });
     $c->start();
 
@@ -406,7 +452,7 @@ Returns/Set the unshare syscall options. See man unshare(2) for further document
     use Mojo::IOLoop::ReadWriteProcess::CGroup qw(cgroupv1);
     use Mojo::Collection 'c';
 
-    my $container = container(process => process(sub { print "Hello!" }));
+    my $container = container(process => sub { print "Hello!" });
     $container->cgroups( c(cgroupv1(controller => 'pids'), cgroupv1(controller => 'memory')) );
 
     $container->session->on(register => sub { ... });
