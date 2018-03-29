@@ -127,8 +127,11 @@ sub start {
 
   if (DEBUG) {
     $self->process->diag(
-      "Starting container: " . $self->group . " " . $self->name);
-    $self->cgroups->each(sub { $self->process->diag("CGroups: " . $_->_cgroup) }
+      "Starting container",
+      ("\tName: " . $self->name) x !!$self->name,
+      ("\tGroup: " . $self->group) x !!$self->group
+    );
+    $self->cgroups->each(sub { $self->process->diag("CGroup: " . $_->_cgroup) }
     );
   }
 
