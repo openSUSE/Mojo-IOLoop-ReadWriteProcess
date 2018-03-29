@@ -126,11 +126,9 @@ sub start {
     }) if defined $self->unshare;
 
   if (DEBUG) {
-    $self->process->diag(
-      "Starting container",
-      ("\tName: " . $self->name) x !!$self->name,
-      ("\tGroup: " . $self->group) x !!$self->group
-    );
+    $self->process->diag("Starting container");
+    $self->process->diag("\tName: " . $self->name)   if defined $self->name;
+    $self->process->diag("\tGroup: " . $self->group) if defined $self->group;
     $self->cgroups->each(sub { $self->process->diag("CGroup: " . $_->_cgroup) }
     );
   }
