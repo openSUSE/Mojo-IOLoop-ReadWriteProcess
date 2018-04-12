@@ -33,10 +33,8 @@ sub disable {
 
 sub _protect {
   shift if $_[0] && $_[0] eq $singleton;
-  my $sig      = @_ > 1 ? pop : SIGCHLD;
-  my $cb       = pop;
-  my $sigset   = POSIX::SigSet->new;
-  my $blockset = POSIX::SigSet->new($sig);
+  my ($sig, $cb) = (@_ > 1 ? pop : SIGCHLD, pop);
+  my ($sigset, $blockset) = (POSIX::SigSet->new, POSIX::SigSet->new($sig));
   $singleton->emit(protect => [$cb, $sig]);
   sigprocmask(SIG_BLOCK, $blockset, $sigset);
   my $r = $cb->();
@@ -71,7 +69,6 @@ sub collect {
   if ($singleton->resolve($pid)) {
     $singleton->_collect($pid => $status => $errno);
     $singleton->emit(collected => $singleton->resolve($pid));
-
   }
   else {
     $singleton->orphans->{$pid}
@@ -251,6 +248,16 @@ Emitted when we receive SIG_CHLD.
     });
 
 Emitted when child process is collected and it's return status is available.
+
+=head2 protect
+
+    $session->on(protect => sub {
+      my ($self, $detail) = @_;
+      my ($cb, $signal) = @$detail;
+      ...
+    });
+
+Emitted when protected callbacks are fired.
 
 =head2 collected_orphan
 
@@ -466,6 +473,17 @@ Unregister the corresponding L<Mojo::IOLoop::ReadWriteProcess> with the given pi
     my $process = session->collect(123342 => 0 => undef);
 
 Collect the status for the given pid.
+
+=head2 protect()
+
+    use Mojo::IOLoop::ReadWriteProcess::Session qw(session);
+    use POSIX;
+
+    my $return = session->protect(sub { print "Hello World\n" });
+
+    session->protect(sub { print "Hello World\n" } => SIGTERM);
+
+Try to protect the execution of the callback from signal interrupts.
 
 =head1 EXPORTS
 
