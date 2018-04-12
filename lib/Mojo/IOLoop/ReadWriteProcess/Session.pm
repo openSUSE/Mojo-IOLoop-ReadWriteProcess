@@ -32,9 +32,12 @@ sub disable {
 }
 
 sub _protect {
+  shift if $_[0] && $_[0] eq $singleton;
+  my $sig      = @_ > 1 ? pop : SIGCHLD;
   my $cb       = pop;
   my $sigset   = POSIX::SigSet->new;
-  my $blockset = POSIX::SigSet->new(SIGCHLD);
+  my $blockset = POSIX::SigSet->new($sig);
+  $singleton->emit(protect => [$cb, $sig]);
   sigprocmask(SIG_BLOCK, $blockset, $sigset);
   my $r = $cb->();
   sigprocmask(SIG_SETMASK, $sigset);
@@ -193,6 +196,7 @@ sub _prctl {
 
 *singleton = \&new;
 *session   = \&new;
+*protect   = \&_protect;
 
 1;
 
