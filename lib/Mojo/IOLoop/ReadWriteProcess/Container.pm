@@ -23,10 +23,10 @@ has cgroups => sub {
 has namespace     => sub { Mojo::IOLoop::ReadWriteProcess::Namespace->new };
 has session       => sub { Mojo::IOLoop::ReadWriteProcess::Session->singleton };
 has pid_isolation => sub { 0 };
-has unshare       => undef;
-has subreaper     => 0;
-has pre_migrate   => 0;
-has clean_cgroup  => 0;
+has unshare      => undef;
+has subreaper    => 0;
+has pre_migrate  => 0;
+has clean_cgroup => 0;
 
 use constant DEBUG => $ENV{MOJO_PROCESS_DEBUG};
 

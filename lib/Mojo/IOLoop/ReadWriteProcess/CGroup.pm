@@ -11,7 +11,7 @@ our @EXPORT_OK = qw(cgroupv2 cgroupv1);
 use Exporter 'import';
 
 use constant CGROUP_FS => $ENV{MOJO_CGROUP_FS} // '/sys/fs/cgroup';
-use constant DEBUG     => $ENV{MOJO_PROCESS_DEBUG};
+use constant DEBUG => $ENV{MOJO_PROCESS_DEBUG};
 
 has '_vfs' => sub { CGROUP_FS() };
 

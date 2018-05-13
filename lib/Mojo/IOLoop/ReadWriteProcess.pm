@@ -457,7 +457,7 @@ sub start {
 }
 
 sub send_signal {
-  my $self   = shift;
+  my $self = shift;
   my $signal = shift // $self->_default_kill_signal;
   return unless $self->is_running;
   $self->_diag("Sending signal '$signal' to " . $self->process_id) if DEBUG;
