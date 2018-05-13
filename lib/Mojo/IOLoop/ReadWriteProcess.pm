@@ -303,7 +303,7 @@ sub _fork {
     }
     $self->session->reset;
     $self->session->subreaper(0);    # Subreaper bit does not persist in fork
-
+    $self->process_id($$);
     $! = 0;
     my $rt;
     eval { $rt = [$code->($self, @args)]; };
