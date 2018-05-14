@@ -47,24 +47,18 @@ sub acquire {
   my $flags = IPC_NOWAIT;
   $flags |= SEM_UNDO if ($args{'undo'});
 
-  my ($ret, $ncnt);
-
-# Get blocked process count here to retain Errno (thus $!) after the first semop call.
-  $ncnt = $self->getncnt($args{'sem'}) if ($args{'wait'});
   if ($args{'wait'}) {
-    return $ret if ($args{'max'} >= 0 && $ncnt >= $args{'max'});
-    warn "[debug:$$] Semaphore wait";
+    my $ncnt = $self->getncnt($args{'sem'});
+    return if ($args{'max'} >= 0 && $ncnt >= $args{'max'});
+    warn "[debug:$$] Semaphore wait" if DEBUG;
 
     # warn "[debug:$$] Semaphore val " . $self->getval($args{sem});
 
     # Remove NOWAIT and block
     $flags ^= IPC_NOWAIT;
-
-    #return $sem->op($args{'sem'}, -1, $flags);
   }
 
   return $sem->op($args{'sem'}, -1, $flags);
-  return $ret;
 }
 
 
