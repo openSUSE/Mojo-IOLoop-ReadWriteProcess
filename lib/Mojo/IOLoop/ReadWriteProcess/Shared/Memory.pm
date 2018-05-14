@@ -10,7 +10,7 @@ use Config;
 use IPC::SysV
   qw(ftok IPC_PRIVATE IPC_NOWAIT IPC_CREAT IPC_EXCL S_IRUSR S_IWUSR S_IRGRP S_IWGRP S_IROTH S_IWOTH SEM_UNDO S_IRWXU S_IRWXG);
 
-has key => 123139;
+has key => sub { Mojo::IOLoop::ReadWriteProcess::Shared::Semaphore::_genkey() };
 has 'buffer';
 has destroy        => 0;
 has flags          => S_IRWXU() | S_IRWXG() | IPC_CREAT();
@@ -64,6 +64,12 @@ sub _loadsize {
   warn "[debug:$$] Mem size: " . $_[0]->_size if DEBUG;
 }
 
+sub _reload {
+  $_[0]->_shared_memory($_[0]->_newmem);
+  do { $_[0]->_shared_memory($_[0]->_newmem) }
+    unless (defined $_[0]->_shared_memory);
+}
+
 # Must be run in a locked section
 sub _sync_size {
   warn "[debug:$$] Sync size for content ("
@@ -75,11 +81,12 @@ sub _sync_size {
   $_[0]->_shared_memory->detach();
   1 unless $_[0]->_safe_remove;
   $_[0]->_size(length $_[0]->buffer);
-  $_[0]->_shared_memory($_[0]->_newmem);
-  $_[0]->_writesize($_[0]->_size);
+  $_[0]->_reload;
+  $_[0]->_writesize($_[0]->_size) if $_[0]->_shared_memory;
 }
 
 sub save {
+  warn "[debug:$$] Writing data : " . $_[0]->buffer if DEBUG;
 
   $_[0]->_encode_content;
 
@@ -98,13 +105,15 @@ sub save {
       ));
 
     $_[0]->_writesize($_[0]->_size);
+
     $_[0]->_shared_memory()->write($_[0]->buffer, 0, $_[0]->_size);
   };
 
   warn "[debug:$$] Error Saving data : $@" if $@ && DEBUG;
 
   $_[0]->_shared_memory->detach() if $_[0]->_shared_memory;
-
+  return if $@;
+  return 1;
 }
 
 sub _newmem {
@@ -120,6 +129,7 @@ sub load {
   eval {
     $_[0]->_loadsize;
     warn "[debug:$$] Reading " . $_[0]->_size if DEBUG;
+    $_[0]->_reload;
     $_[0]->_shared_memory->attach();
     $_[0]->buffer($_[0]->_shared_memory()->read(0, $_[0]->_size));
     $_[0]->_decode_content;
@@ -149,7 +159,8 @@ sub remove {
 }
 
 sub clean {
-  $_[0]->lock_section(sub { $_[0]->buffer('')->save });
+  my $self = shift;
+  $self->lock_section(sub { $self->buffer('')->save });
 }
 
 sub unlock {
@@ -158,12 +169,12 @@ sub unlock {
 }
 
 sub lock { my $s = shift; my $r = $s->_lock->lock(@_); $s->load; $r }
-sub try_lock { $_[0]->lock->try_lock() }
+sub try_lock { $_[0]->_lock->try_lock() }
 
 sub lock_section {
   my ($self, $fn) = @_;
   warn "[debug:$$] Acquiring lock (blocking)" if DEBUG;
-  1 unless $self->lock;
+  1 while $self->lock != 1;
   warn "[debug:$$] Lock acquired $$" if DEBUG;
 
   my $r;
