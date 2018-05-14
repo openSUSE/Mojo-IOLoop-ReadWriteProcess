@@ -43,7 +43,7 @@ subtest autodetect => sub {
   attempt {
     attempts  => 10,
     condition => sub { defined $fired && $fired == 3 },
-    cb => sub { sleep 1 }
+    cb        => sub { sleep 1 }
   };
 
   $p->stop;
@@ -97,7 +97,7 @@ subtest autodetect_fork => sub {
   attempt {
     attempts  => 20,
     condition => sub { defined $status && $status == 6 },
-    cb => sub { sleep 1 }
+    cb        => sub { sleep 1 }
   };
 
   $master_p->stop;
@@ -179,7 +179,7 @@ subtest subreaper => sub {
   attempt {
     attempts  => 20,
     condition => sub { defined $orphans && $orphans == 7 },
-    cb => sub { sleep 1 }
+    cb        => sub { sleep 1 }
   };
 
   $master_p->stop();
@@ -233,7 +233,7 @@ subtest subreaper_bash => sub {
   attempt {
     attempts  => 20,
     condition => sub { defined $orphans && $orphans == 7 },
-    cb => sub { sleep 1 }
+    cb        => sub { sleep 1 }
   };
 
   $master_p->stop();
@@ -282,7 +282,7 @@ subtest subreaper_bash_execute => sub {
   attempt {
     attempts  => 20,
     condition => sub { defined $orphans && $orphans == 7 },
-    cb => sub { sleep 1 }
+    cb        => sub { sleep 1 }
   };
 
   $master_p->stop();
@@ -342,7 +342,7 @@ subtest manager => sub {
   attempt {
     attempts  => 20,
     condition => sub { defined $status && $status == 1 },
-    cb => sub { sleep 1 }
+    cb        => sub { sleep 1 }
   };
 
   $master_p->stop();
@@ -397,7 +397,7 @@ subtest subreaper_bash_roulette => sub {
   attempt {
     attempts  => 20,
     condition => sub { defined $orphans && $orphans == 8 },
-    cb => sub { sleep 1 }
+    cb        => sub { sleep 1 }
   };
 
   $master_p->stop();
