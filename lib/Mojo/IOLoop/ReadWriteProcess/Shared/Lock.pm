@@ -23,6 +23,24 @@ sub lock {
   return $r;
 }
 
+sub lock_section {
+  my ($self, $fn) = @_;
+  warn "[debug:$$] Acquiring lock (blocking)" if DEBUG;
+  1 while $self->lock != 1;
+  warn "[debug:$$] Lock acquired $$" if DEBUG;
+
+  my $r;
+  {
+    local $@;
+    $r = eval { $fn->() };
+    $self->unlock();
+    warn "[debug:$$] Error inside locked section : $@" if $@ && DEBUG;
+  };
+  return $r;
+}
+
+*section = \&lock_section;
+
 sub try_lock { shift->acquire(@_) }
 
 sub unlock {

@@ -44,7 +44,6 @@ sub new {
   return $s;
 }
 
-
 sub _encode_content { $_[0]->buffer(unpack 'H*', $_[0]->buffer()) }
 sub _decode_content { $_[0]->buffer(pack 'H*',   $_[0]->buffer()) }
 
@@ -180,18 +179,20 @@ sub try_lock { $_[0]->_lock->try_lock() }
 
 sub lock_section {
   my ($self, $fn) = @_;
-  warn "[debug:$$] Acquiring lock (blocking)" if DEBUG;
-  1 while $self->lock != 1;
-  warn "[debug:$$] Lock acquired $$" if DEBUG;
 
-  my $r;
-  {
-    local $@;
-    $r = eval { $fn->() };
-    $self->unlock();
-    warn "[debug:$$] Error inside locked section : $@" if $@ && DEBUG;
-  };
-  return $r;
+  return $self->_lock->lock_section(
+    sub {
+      my $r;
+      {
+        $self->load;
+        local $@;
+        $r = eval { $fn->() };
+        warn "[debug:$$] Error inside locked memory section : $@"
+          if $@ && DEBUG;
+        eval { $self->save };
+      };
+      return $r;
+    });
 }
 
 sub stat { shift->_shared_memory->stat }
