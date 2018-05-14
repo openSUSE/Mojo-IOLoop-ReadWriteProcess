@@ -10,6 +10,9 @@ use Config;
 use IPC::SysV
   qw(ftok IPC_PRIVATE IPC_NOWAIT IPC_CREAT IPC_EXCL S_IRUSR S_IWUSR S_IRGRP S_IWGRP S_IROTH S_IWOTH SEM_UNDO S_IRWXU S_IRWXG);
 
+our @EXPORT_OK = qw(shared_memory shared_lock semaphore);
+use Exporter 'import';
+
 has key => sub { Mojo::IOLoop::ReadWriteProcess::Shared::Semaphore::_genkey() };
 has 'buffer';
 has destroy        => 0;
@@ -26,6 +29,10 @@ has _lock => sub {
 has dynamic_resize    => 1;
 has dynamic_decrement => 1;
 has dynamic_increment => 1;
+
+sub shared_lock   { Mojo::IOLoop::ReadWriteProcess::Shared::Lock->new(@_) }
+sub semaphore     { Mojo::IOLoop::ReadWriteProcess::Shared::Semaphore->new(@_) }
+sub shared_memory { __PACKAGE__->new(@_) }
 
 sub new {
   my $s = shift->SUPER::new(@_);

@@ -12,6 +12,10 @@ use Mojo::IOLoop::ReadWriteProcess::Pool;
 use Mojo::IOLoop::ReadWriteProcess::Queue;
 use Mojo::IOLoop::ReadWriteProcess::Session;
 
+use Mojo::IOLoop::ReadWriteProcess::Shared::Lock;
+use Mojo::IOLoop::ReadWriteProcess::Shared::Memory;
+use Mojo::IOLoop::ReadWriteProcess::Shared::Semaphore;
+
 use B::Deparse;
 use Carp 'confess';
 use IO::Handle;
@@ -21,7 +25,8 @@ use IPC::Open3;
 use Symbol 'gensym';
 use Storable;
 use POSIX qw( :sys_wait_h :signal_h );
-our @EXPORT_OK = qw(parallel batch process pool queue);
+our @EXPORT_OK
+  = (qw(parallel batch process pool queue), qw(shared_memory lock semaphore));
 use Exporter 'import';
 
 use constant DEBUG => $ENV{MOJO_PROCESS_DEBUG};
@@ -76,9 +81,12 @@ sub to_ioloop {
   return $stream;
 }
 
-sub process { __PACKAGE__->new(@_) }
-sub batch   { Mojo::IOLoop::ReadWriteProcess::Pool->new(@_) }
-sub queue   { Mojo::IOLoop::ReadWriteProcess::Queue->new(@_) }
+sub process       { __PACKAGE__->new(@_) }
+sub batch         { Mojo::IOLoop::ReadWriteProcess::Pool->new(@_) }
+sub queue         { Mojo::IOLoop::ReadWriteProcess::Queue->new(@_) }
+sub lock          { Mojo::IOLoop::ReadWriteProcess::Shared::Lock->new(@_) }
+sub semaphore     { Mojo::IOLoop::ReadWriteProcess::Shared::Semaphore->new(@_) }
+sub shared_memory { Mojo::IOLoop::ReadWriteProcess::Shared::Memory->new(@_) }
 
 sub parallel {
   my $c = batch();
@@ -457,7 +465,7 @@ sub start {
 }
 
 sub send_signal {
-  my $self = shift;
+  my $self   = shift;
   my $signal = shift // $self->_default_kill_signal;
   return unless $self->is_running;
   $self->_diag("Sending signal '$signal' to " . $self->process_id) if DEBUG;

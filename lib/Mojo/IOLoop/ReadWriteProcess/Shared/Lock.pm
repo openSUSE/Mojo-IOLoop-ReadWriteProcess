@@ -1,6 +1,9 @@
 package Mojo::IOLoop::ReadWriteProcess::Shared::Lock;
 
 use Mojo::Base 'Mojo::IOLoop::ReadWriteProcess::Shared::Semaphore';
+
+our @EXPORT_OK = qw(shared_lock semaphore);
+use Exporter 'import';
 use constant DEBUG => $ENV{MOJO_PROCESS_DEBUG};
 
 # Mojo::IOLoop::ReadWriteProcess::Shared::Semaphore has same defaults - but locks have 1 count and 1 as setup value
@@ -8,6 +11,8 @@ use constant DEBUG => $ENV{MOJO_PROCESS_DEBUG};
 has count  => 1;
 has _value => 1;
 has locked => 0;
+
+sub shared_lock { __PACKAGE__->new(@_) }
 
 sub lock {
   my $self = shift;

@@ -6,12 +6,16 @@ use POSIX qw(O_WRONLY O_CREAT O_NONBLOCK O_NOCTTY);
 use IPC::SysV
   qw(ftok IPC_NOWAIT IPC_CREAT IPC_EXCL S_IRUSR S_IWUSR S_IRGRP S_IWGRP S_IROTH S_IWOTH SEM_UNDO);
 use IPC::Semaphore;
+our @EXPORT_OK = qw(semaphore);
+use Exporter 'import';
 
 use constant DEBUG => $ENV{MOJO_PROCESS_DEBUG};
 has key  => sub { shift->_genkey };
 has _sem => sub { $_[0]->_create(shift->key) };
 has count  => 1;
 has _value => 1;
+
+sub semaphore { __PACKAGE__->new(@_) }
 
 sub _genkey { ftok($0, 0) }
 

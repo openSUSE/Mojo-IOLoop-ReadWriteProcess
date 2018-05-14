@@ -8,15 +8,14 @@ use FindBin;
 use Mojo::File qw(tempfile tempdir path);
 use lib ("$FindBin::Bin/lib", "../lib", "lib");
 
-use Mojo::IOLoop::ReadWriteProcess qw(process queue);
+use Mojo::IOLoop::ReadWriteProcess
+  qw(process queue shared_memory lock semaphore);
 use Mojo::IOLoop::ReadWriteProcess::Shared::Semaphore;
 use Mojo::IOLoop::ReadWriteProcess::Shared::Memory;
 
-
 subtest 'semaphore' => sub {
 
-  my $sem
-    = Mojo::IOLoop::ReadWriteProcess::Shared::Semaphore->new(key => 33131);
+  my $sem = semaphore(key => 33131);
 
   my $q = queue;
   $q->pool->maximum_processes(10);
@@ -25,14 +24,13 @@ subtest 'semaphore' => sub {
   $q->add(
     process(
       sub {
-        my $sem = Mojo::IOLoop::ReadWriteProcess::Shared::Semaphore->new(
-          key => 33131);
+        my $sem = semaphore->new(key => 33131);
         if ($sem->acquire(wait => 1, undo => 0)) {
 
           #    $sem->setval(0, $$);
           $sem->release();
         }
-
+        Devel::Cover::report() if Devel::Cover->can('report');
       }
     )->set_pipes(0)->internal_pipes(0)) for 1 .. 20;
 
@@ -44,7 +42,7 @@ subtest 'semaphore' => sub {
   diag explain $sem->getval(0);
 
   $sem->remove;
-  $sem = Mojo::IOLoop::ReadWriteProcess::Shared::Semaphore->new(key => 3313);
+  $sem = semaphore(key => 3313);
 
   $q = queue;
   $q->pool->maximum_processes(10);
@@ -53,14 +51,13 @@ subtest 'semaphore' => sub {
   $q->add(
     process(
       sub {
-        my $sem
-          = Mojo::IOLoop::ReadWriteProcess::Shared::Semaphore->new(key => 3313);
+        my $sem = semaphore(key => 3313);
         if ($sem->acquire(wait => 1, undo => 0)) {
 
           #    $sem->setval(0, $$);
           $sem->release();
         }
-
+        Devel::Cover::report() if Devel::Cover->can('report');
       }
     )->set_pipes(0)->internal_pipes(0)) for 1 .. 20;
 
@@ -76,7 +73,7 @@ subtest 'semaphore' => sub {
 
 subtest 'lock' => sub {
   my $k = 2342385;
-  my $lock = Mojo::IOLoop::ReadWriteProcess::Shared::Lock->new(key => $k);
+  my $lock = lock(key => $k);
 
   my $q = queue;
   $q->pool->maximum_processes(10);
@@ -85,11 +82,11 @@ subtest 'lock' => sub {
   $q->add(
     process(
       sub {
-        my $l = Mojo::IOLoop::ReadWriteProcess::Shared::Lock->new(key => $k);
+        my $l = lock(key => $k);
         if ($l->lock) {
           $l->unlock;
         }
-
+        Devel::Cover::report() if Devel::Cover->can('report');
       }
     )->set_pipes(0)->internal_pipes(0)) for 1 .. 20;
 
@@ -103,7 +100,7 @@ subtest 'lock' => sub {
 
 subtest 'lock 2' => sub {
 
-  my $lock = Mojo::IOLoop::ReadWriteProcess::Shared::Lock->new(key => 3331);
+  my $lock = lock(key => 3331);
 
   my $q = queue;
   $q->pool->maximum_processes(10);
@@ -112,12 +109,13 @@ subtest 'lock 2' => sub {
   $q->add(
     process(
       sub {
-        my $l = Mojo::IOLoop::ReadWriteProcess::Shared::Lock->new(key => 3331);
+        my $l = lock(key => 3331);
         if ($l->lock) {
-          $l->setval(0, $$);
+
+          #  $l->setval(0, $$);
           $l->unlock;
         }
-
+        Devel::Cover::report() if Devel::Cover->can('report');
       }
     )->set_pipes(0)->internal_pipes(0)) for 1 .. 20;
 
@@ -132,14 +130,16 @@ subtest 'memory' => sub {
   use IPC::SysV qw/SEM_UNDO IPC_CREAT ftok/;
 
   my $k = ftok($0, 0);    #124551; # ftok($0, 0)
-  my $mem = Mojo::IOLoop::ReadWriteProcess::Shared::Memory->new(key => $k);
+  my $mem = shared_memory(key => $k);
   $mem->_lock->remove;
+  my $default = shared_memory;
+  is $default->key, $k;
 
-  $mem = Mojo::IOLoop::ReadWriteProcess::Shared::Memory->new(key => $k);
+  $mem = shared_memory(key => $k);
   $mem->clean;
   $mem->_lock->remove;
 
-  $mem = Mojo::IOLoop::ReadWriteProcess::Shared::Memory->new(key => $k);
+  $mem = shared_memory(key => $k);
   $mem->lock_section(sub { $mem->buffer('start') });
 
   my $q = queue;
@@ -150,8 +150,7 @@ subtest 'memory' => sub {
     process(
       sub {
 
-        my $mem
-          = Mojo::IOLoop::ReadWriteProcess::Shared::Memory->new(key => $k);
+        my $mem = shared_memory(key => $k);
 
         $mem->lock_section(
           sub {
@@ -160,13 +159,14 @@ subtest 'memory' => sub {
               for 1 .. 5;
             my $b = $mem->buffer;
             $mem->buffer($$ . " $b");
+            Devel::Cover::report() if Devel::Cover->can('report');
           });
       }
     )->set_pipes(0)->internal_pipes(0)) for 1 .. 20;
 
   $q->consume();
 
-  $mem = Mojo::IOLoop::ReadWriteProcess::Shared::Memory->new(key => $k);
+  $mem = shared_memory(key => $k);
   $mem->lock_section(
     sub {
       ok(length $mem->buffer > 0);
