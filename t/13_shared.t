@@ -7,7 +7,6 @@ use POSIX;
 use FindBin;
 use Mojo::File qw(tempfile tempdir path);
 use lib ("$FindBin::Bin/lib", "../lib", "lib");
-BEGIN { $ENV{MOJO_PROCESS_DEBUG} = 1 }
 
 use Mojo::IOLoop::ReadWriteProcess qw(process queue);
 use Mojo::IOLoop::ReadWriteProcess::Shared::Semaphore;
