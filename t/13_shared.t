@@ -11,6 +11,7 @@ use lib ("$FindBin::Bin/lib", "../lib", "lib");
 use Mojo::IOLoop::ReadWriteProcess
   qw(process queue shared_memory lock semaphore);
 use Mojo::IOLoop::ReadWriteProcess::Shared::Semaphore;
+use Mojo::IOLoop::ReadWriteProcess::Shared::Lock;
 use Mojo::IOLoop::ReadWriteProcess::Shared::Memory;
 use Data::Dumper;
 
@@ -76,7 +77,8 @@ subtest 'semaphore' => sub {
 
 subtest 'lock' => sub {
   my $k = 2342385;
-  my $lock = lock(key => $k);
+  my $lock
+    = Mojo::IOLoop::ReadWriteProcess::Shared::Lock::shared_lock(key => $k);
 
   my $q = queue;
   $q->pool->maximum_processes(10);
@@ -113,7 +115,8 @@ subtest 'lock' => sub {
 
 subtest 'lock section' => sub {
 
-  my $lock = lock(key => 3331);
+  my $lock
+    = Mojo::IOLoop::ReadWriteProcess::Shared::Memory::shared_lock(key => 3331);
 
   my $q = queue;
   $q->pool->maximum_processes(10);
