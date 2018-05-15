@@ -14,6 +14,8 @@ has key  => sub { shift->_genkey };
 has _sem => sub { $_[0]->_create(shift->key) };
 has count  => 1;
 has _value => 1;
+has flags  => IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP
+  | S_IROTH | S_IWOTH;
 
 sub semaphore { __PACKAGE__->new(@_) }
 
@@ -27,9 +29,7 @@ sub _create {
   my $sem = IPC::Semaphore->new($key, $self->count, 0);
   unless (defined $sem) {
     warn "[debug:$$] Create semaphore $key" if DEBUG;
-    $sem = IPC::Semaphore->new($key, $self->count,
-      IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH
-        | S_IWOTH);
+    $sem = IPC::Semaphore->new($key, $self->count, $self->flags);
     confess 'Semaphore creation failed! ' unless defined($sem);
     $sem->setall($self->_value);
   }

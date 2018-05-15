@@ -15,15 +15,19 @@ use Exporter 'import';
 
 has key => sub { Mojo::IOLoop::ReadWriteProcess::Shared::Semaphore::_genkey() };
 has 'buffer';
-has destroy        => 0;
-has flags          => S_IRWXU() | S_IRWXG() | IPC_CREAT();
-has _size          => 10 * 1024;
+has destroy    => 0;
+has flags      => S_IRWXU() | S_IRWXG() | IPC_CREAT();
+has lock_flags => IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP
+  | S_IROTH | S_IWOTH;
+has _size => 10 * 1024;
 has _shared_memory => sub { $_[0]->_newmem() };
 has _shared_size =>
   sub { $_[0]->_newmem((2 ^ shift->key) - 1, $Config{intsize}) };
 has _lock => sub {
   Mojo::IOLoop::ReadWriteProcess::Shared::Lock->new(
-    key => (2 ^ shift->key) + 1);
+    flags => $_[0]->lock_flags,
+    key   => (2 ^ shift->key) + 1
+  );
 };
 
 has dynamic_resize    => 1;
