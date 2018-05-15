@@ -14,6 +14,8 @@ use Mojo::IOLoop::ReadWriteProcess::Shared::Semaphore;
 use Mojo::IOLoop::ReadWriteProcess::Shared::Memory;
 use Data::Dumper;
 
+use constant DEBUG => $ENV{MOJO_PROCESS_DEBUG};
+
 subtest 'semaphore' => sub {
 
   my $sem_key = 33131;
@@ -46,7 +48,7 @@ subtest 'semaphore' => sub {
   $q->add(
     process(
       sub {
-        my $sem = semaphore->new(key => $sem_key);
+        my $sem = semaphore(key => $sem_key);
         my $e = 1;
         if ($sem->acquire({wait => 1, undo => 0})) {
           $e = 0;
@@ -170,8 +172,13 @@ subtest 'concurrent memory read/write' => sub {
         $mem->lock_section(
           sub {
             # Random sleeps to try to make threads race into lock section
-            do { warn "$$: Sleeping inside locked section"; sleep rand(int(2)) }
-              for 1 .. 5;
+            unless (DEBUG) {
+              do {
+                warn "$$: Sleeping inside locked section";
+                sleep rand(int(2));
+                }
+                for 1 .. 5;
+            }
             my $b = $mem->buffer;
             $mem->buffer($$ . " $b");
             Devel::Cover::report() if Devel::Cover->can('report');
@@ -196,10 +203,7 @@ subtest 'concurrent memory read/write' => sub {
   $mem->remove;
 };
 
-subtest 'storable' => sub {
-  use IPC::SysV 'ftok';
-  use Storable qw(freeze thaw);
-
+sub free_mem {
   my $mem = shared_memory;
   $mem->_lock->remove;
   $mem->remove;
@@ -209,8 +213,35 @@ subtest 'storable' => sub {
   $mem->_lock->remove;
 
   $mem = shared_memory;
-  $mem->lock_section(sub { $mem->buffer(freeze({})) })
-    ;    # Initialize with storable
+
+  if ($mem->try_lock) {
+    $mem->buffer(freeze({}));
+    $mem->unlock;
+  }
+}
+
+sub test_mem {
+  my $mem = shared_memory;
+  $mem->lock_section(
+    sub {
+      ok((length $mem->buffer > 0), 'Buffer is there');
+      my $data = thaw($mem->buffer);
+      my @pids = keys %{$data};
+      is scalar @pids, 20, 'There are 20 pids';
+      diag explain $data;
+    });
+
+  is $mem->stat->[8], 0, 'No process attached to memory';
+  $mem->_lock->remove;
+  $mem->remove;
+}
+
+subtest 'storable' => sub {
+  use Storable qw(freeze thaw);
+  use Mojo::IOLoop::ReadWriteProcess::Shared::Memory
+    qw(shared_lock shared_memory semaphore);
+
+  free_mem;
 
   my $q = queue;
   $q->pool->maximum_processes(10);
@@ -222,8 +253,13 @@ subtest 'storable' => sub {
         my $mem = shared_memory;
         $mem->lock_section(
           sub {
-            do { warn "$$: Sleeping inside locked section"; sleep rand(int(2)) }
-              for 1 .. 5;
+            unless (DEBUG) {
+              do {
+                warn "$$: Sleeping inside locked section";
+                sleep rand(int(2));
+                }
+                for 1 .. 5;
+            }
             my $data = thaw($mem->buffer);
             $data->{$$}++;
             $mem->buffer(freeze($data));
@@ -233,20 +269,78 @@ subtest 'storable' => sub {
     )->set_pipes(0)->internal_pipes(0)) for 1 .. 20;
 
   $q->consume();
-  is $q->done->size,20,'Queue consumed 20 processes';
+  is $q->done->size, 20, 'Queue consumed 20 processes';
 
-  $mem = shared_memory;
-  $mem->lock_section(
-    sub {
-      ok((length $mem->buffer > 0), 'Buffer is there');
-      my $data = thaw($mem->buffer);
-      my @pids = keys %{$data};
-      is scalar @pids, 20, 'There are 20 pids';
-      diag explain $data;
-    });
-
-  $mem->_lock->remove;
+  test_mem;
 };
 
+subtest 'locking with undo' => sub {
+  use Storable qw(freeze thaw);
+
+  free_mem;
+
+  my $q = queue;
+  $q->pool->maximum_processes(10);
+  $q->queue->maximum_processes(50);
+
+  $q->add(
+    process(
+      sub {
+        my $mem = shared_memory;
+
+        if ($mem->lock(undo => 1, wait => 1))
+        {    # Do not unlock/release with undo => 1
+          my $data = thaw($mem->buffer);
+          $data->{$$}++;
+          $mem->buffer(freeze($data));
+          $mem->save();
+        }
+        Devel::Cover::report() if Devel::Cover->can('report');
+      }
+    )->set_pipes(0)->internal_pipes(0)) for 1 .. 20;
+
+  $q->consume();
+  is $q->done->size, 20, 'Queue consumed 20 processes';
+
+  test_mem;
+};
+
+subtest 'dying in locked section' => sub {
+  use Storable qw(freeze thaw);
+
+  free_mem;
+
+  my $q = queue;
+  $q->pool->maximum_processes(10);
+  $q->queue->maximum_processes(20);
+
+  $q->add(
+    process(
+      sub {
+        my $mem = shared_memory;
+        $mem->lock_section(
+          sub {
+            unless (DEBUG) {
+              do {
+                warn "$$: Sleeping inside locked section";
+                sleep rand(int(2));
+                }
+                for 1 .. 5;
+            }
+            my $data = thaw($mem->buffer);
+            $data->{$$}++;
+            $mem->buffer(freeze($data));
+            Devel::Cover::report() if Devel::Cover->can('report');
+            die("Process failed!");
+          });
+        Devel::Cover::report() if Devel::Cover->can('report');
+      }
+    )->set_pipes(0)->internal_pipes(0)) for 1 .. 20;
+
+  $q->consume();
+  is $q->done->size, 20, 'Queue consumed 20 processes';
+
+  test_mem;
+};
 
 done_testing();
