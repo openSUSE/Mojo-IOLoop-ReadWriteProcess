@@ -166,12 +166,12 @@ subtest 'concurrent memory read/write' => sub {
       sub {
 
         my $mem = shared_memory(key => $k);
-
+        srand time;
         $mem->lock_section(
           sub {
             # Random sleeps to try to make threads race into lock section
-            #    do { warn "$$: sleeping"; sleep rand(int(2)) }
-            #        for 1 .. 5;
+            do { warn "$$: Sleeping inside locked section"; sleep rand(int(2)) }
+              for 1 .. 5;
             my $b = $mem->buffer;
             $mem->buffer($$ . " $b");
             Devel::Cover::report() if Devel::Cover->can('report');
@@ -193,6 +193,59 @@ subtest 'concurrent memory read/write' => sub {
     });
 
   $mem->_lock->remove;
+  $mem->remove;
 };
+
+subtest 'storable' => sub {
+  use IPC::SysV 'ftok';
+  use Storable qw(freeze thaw);
+
+  my $mem = shared_memory;
+  $mem->_lock->remove;
+  $mem->remove;
+
+  $mem = shared_memory;
+  $mem->clean;
+  $mem->_lock->remove;
+
+  $mem = shared_memory;
+  $mem->lock_section(sub { $mem->buffer(freeze({})) })
+    ;    # Initialize with storable
+
+  my $q = queue;
+  $q->pool->maximum_processes(10);
+  $q->queue->maximum_processes(50);
+
+  $q->add(
+    process(
+      sub {
+        my $mem = shared_memory;
+        $mem->lock_section(
+          sub {
+            do { warn "$$: Sleeping inside locked section"; sleep rand(int(2)) }
+              for 1 .. 5;
+            my $data = thaw($mem->buffer);
+            $data->{$$}++;
+            $mem->buffer(freeze($data));
+            Devel::Cover::report() if Devel::Cover->can('report');
+          });
+      }
+    )->set_pipes(0)->internal_pipes(0)) for 1 .. 20;
+
+  $q->consume();
+
+  $mem = shared_memory;
+  $mem->lock_section(
+    sub {
+      ok((length $mem->buffer > 0), 'Buffer is there');
+      my $data = thaw($mem->buffer);
+      my @pids = keys %{$data};
+      is scalar @pids, 20, 'There are 20 pids';
+      diag explain $data;
+    });
+
+  $mem->_lock->remove;
+};
+
 
 done_testing();
