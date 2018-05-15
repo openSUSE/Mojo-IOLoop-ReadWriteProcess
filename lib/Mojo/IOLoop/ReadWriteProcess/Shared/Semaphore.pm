@@ -44,7 +44,7 @@ sub acquire {
   $args{'sem'}  = 0  unless defined($args{'sem'});
   $args{'wait'} = 0  unless defined($args{'wait'});
   $args{'max'}  = -1 unless defined($args{'max'});
-  $args{'undo'} = 1  unless defined($args{'undo'});
+  $args{'undo'} = 0  unless defined($args{'undo'});
   warn "[debug:$$] Acquire semaphore " . $self->key if DEBUG;
 
   my $sem   = $self->_sem;

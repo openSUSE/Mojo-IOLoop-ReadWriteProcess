@@ -77,18 +77,26 @@ sub _reload {
 }
 
 # Must be run in a locked section
+sub resize {
+  $_[0]->_shared_memory->detach();
+  1 unless $_[0]->_safe_remove;
+  $_[0]->_size($_[1]);
+  $_[0]->_reload;
+
+  # XXX: is faster to re-allocate the shared memory with shmctl, but SHM_SIZE
+  # seems to not be really portable:
+  # shmctl $_[0]->_shared_memory->id, SHM_SIZE, struct
+  $_[0]->_writesize($_[1]) if $_[0]->_shared_memory;
+}
+
+# Must be run in a locked section
 sub _sync_size {
   warn "[debug:$$] Sync size for content ("
     . length($_[0]->buffer)
     . ") vs currently allocated ("
     . $_[0]->_size . ")"
     if DEBUG;
-
-  $_[0]->_shared_memory->detach();
-  1 unless $_[0]->_safe_remove;
-  $_[0]->_size(length $_[0]->buffer);
-  $_[0]->_reload;
-  $_[0]->_writesize($_[0]->_size) if $_[0]->_shared_memory;
+  $_[0]->resize(length $_[0]->buffer);
 }
 
 sub save {
@@ -138,6 +146,9 @@ sub load {
     $_[0]->_reload;
     $_[0]->_shared_memory->attach();
     $_[0]->buffer($_[0]->_shared_memory()->read(0, $_[0]->_size));
+
+# XXX: Remove the 0 padding?
+# substr($_[0]->{buffer}, index($_[0]->{buffer}, "\0")) = "";
     $_[0]->_decode_content;
   };
 
@@ -166,7 +177,7 @@ sub remove {
 
 sub clean {
   my $self = shift;
-  $self->lock_section(sub { $self->buffer('')->save });
+  $self->lock_section(sub { $self->buffer(' ')->save });
 }
 
 sub unlock {

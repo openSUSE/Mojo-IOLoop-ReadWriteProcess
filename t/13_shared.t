@@ -233,6 +233,7 @@ subtest 'storable' => sub {
     )->set_pipes(0)->internal_pipes(0)) for 1 .. 20;
 
   $q->consume();
+  is $q->done->size,20,'Queue consumed 20 processes';
 
   $mem = shared_memory;
   $mem->lock_section(

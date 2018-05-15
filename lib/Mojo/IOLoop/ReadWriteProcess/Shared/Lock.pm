@@ -41,7 +41,7 @@ sub lock_section {
 
 *section = \&lock_section;
 
-sub try_lock { shift->acquire(@_) }
+sub try_lock { shift->acquire(undo => 0, wait => 0) }
 
 sub unlock {
   my $self = shift;
