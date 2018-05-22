@@ -55,8 +55,7 @@ sub acquire {
     my $ncnt = $self->getncnt($args{'sem'});
     return if ($args{'max'} >= 0 && $ncnt >= $args{'max'});
     warn "[debug:$$] Semaphore wait" if DEBUG;
-
-    # warn "[debug:$$] Semaphore val " . $self->getval($args{sem});
+    warn "[debug:$$] Semaphore val " . $self->getval($args{sem}) if DEBUG;
 
     # Remove NOWAIT and block
     $flags ^= IPC_NOWAIT;

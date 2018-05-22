@@ -22,11 +22,11 @@ has lock_flags => IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP
 has _size => 10 * 1024;
 has _shared_memory => sub { $_[0]->_newmem() };
 has _shared_size =>
-  sub { $_[0]->_newmem((2 ^ shift->key) - 1, $Config{intsize}) };
+  sub { $_[0]->_newmem((2 * shift->key) - 1, $Config{intsize}) };
 has _lock => sub {
   Mojo::IOLoop::ReadWriteProcess::Shared::Lock->new(
     flags => $_[0]->lock_flags,
-    key   => (2 ^ shift->key) + 1
+    key   => (2 * shift->key) + 1
   );
 };
 
@@ -48,8 +48,8 @@ sub new {
   return $s;
 }
 
-sub _encode_content { $_[0]->buffer(unpack 'H*', $_[0]->buffer()) }
-sub _decode_content { $_[0]->buffer(pack 'H*',   $_[0]->buffer()) }
+sub _encode_content { $_[0]->buffer(unpack 'H*', shift->buffer()) }
+sub _decode_content { $_[0]->buffer(pack 'H*',   shift->buffer()) }
 
 sub _writesize {
   my $self = shift;
@@ -76,21 +76,21 @@ sub _loadsize {
 
 sub _reload {
   $_[0]->_shared_memory($_[0]->_newmem);
-  do { $_[0]->_shared_memory($_[0]->_newmem) }
-    unless (defined $_[0]->_shared_memory);
+  $_[0]->_shared_memory($_[0]->_newmem) until defined $_[0]->_shared_memory;
 }
 
 # Must be run in a locked section
 sub resize {
-  $_[0]->_shared_memory->detach();
-  1 unless $_[0]->_safe_remove;
-  $_[0]->_size($_[1]);
-  $_[0]->_reload;
+  my $self = shift;
+  $self->_shared_memory->detach();
+  1 until $self->_safe_remove;
+  $self->_size($_[0] // length $self->buffer);
+  $self->_reload;
 
   # XXX: is faster to re-allocate the shared memory with shmctl, but SHM_SIZE
   # seems to not be really portable:
   # shmctl $_[0]->_shared_memory->id, SHM_SIZE, struct
-  $_[0]->_writesize($_[1]) if $_[0]->_shared_memory;
+#  $_[0]->_writesize($_[1] // length $_[0]->buffer ) if $_[0]->_shared_memory;
 }
 
 # Must be run in a locked section
@@ -100,7 +100,7 @@ sub _sync_size {
     . ") vs currently allocated ("
     . $_[0]->_size . ")"
     if DEBUG;
-  $_[0]->resize(length $_[0]->buffer);
+  $_[0]->resize;
 }
 
 sub save {
@@ -121,10 +121,12 @@ sub save {
           && (defined $_[0]->buffer && $_[0]->_size > length $_[0]->buffer)
         )    # Decrement
       ));
+    $_[0]->_writesize($_[0]->_size) if $_[0]->_shared_memory();
 
-    $_[0]->_writesize($_[0]->_size);
+#    $_[0]->_reload;
 
-    $_[0]->_shared_memory()->write($_[0]->buffer, 0, $_[0]->_size);
+    $_[0]->_shared_memory()->write($_[0]->buffer, 0, $_[0]->_size)
+      if $_[0]->_shared_memory();
   };
 
   warn "[debug:$$] Error Saving data : $@" if $@ && DEBUG;
