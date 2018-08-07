@@ -16,6 +16,7 @@ use Mojo::IOLoop::ReadWriteProcess::Shared::Memory;
 use Data::Dumper;
 
 use constant DEBUG => $ENV{MOJO_PROCESS_DEBUG};
+plan skip_all => "Skipped unless TEST_SHARED is set" unless $ENV{TEST_SHARED};
 
 subtest 'semaphore' => sub {
 
