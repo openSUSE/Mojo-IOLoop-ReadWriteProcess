@@ -37,7 +37,7 @@ has [
   qw(internal_pipes channels)
 ] => 1;
 
-has [qw(blocking_stop serialize)] => 0;
+has [qw(blocking_stop serialize quirkiness)] => 0;
 
 has [
   qw(execute code process_id pidfile return_status),
@@ -382,9 +382,17 @@ sub wait {
   return $self;
 }
 
-sub wait_stop   { shift->wait->stop }
-sub errored     { !!@{shift->error} ? 1 : 0 }
-sub exit_status { defined $_[0]->_status ? shift->_status >> 8 : undef }
+sub wait_stop { shift->wait->stop }
+sub errored { !!@{shift->error} ? 1 : 0 }
+
+# PPC64: Treat msb on neg (different cpu/perl interpreter version)
+sub _st { my $st = shift >> 8; ($st & 0x80) ? (0x100 - ($st & 0xFF)) : $st }
+
+sub exit_status {
+      defined $_[0]->_status && $_[0]->quirkiness ? _st(shift->_status)
+    : defined $_[0]->_status ? shift->_status >> 8
+    :                          undef;
+}
 
 sub restart {
   $_[0]->{_status} = undef;
