@@ -827,7 +827,7 @@ Returns the current L<Mojo::IOLoop::ReadWriteProcess::Session> singleton.
     use Mojo::IOLoop::ReadWriteProcess;
     my $process = Mojo::IOLoop::ReadWriteProcess->new(code => sub { print "Hello ".shift() }, args => "User" );
     $process->subreaper(1)->start();
-    $process->on( stop => sub { $_->disable_subreaper } );
+    $process->on( stop => sub { shift()->disable_subreaper } );
     $process->stop();
 
     # The process will print "Hello User"

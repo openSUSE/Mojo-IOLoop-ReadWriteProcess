@@ -295,7 +295,7 @@ the following new ones.
     session->enable_subreaper;
     my $process = Mojo::IOLoop::ReadWriteProcess->new(code => sub { print "Hello ".shift() }, args => "User" );
     $process->start();
-    $process->on( stop => sub { $_->disable_subreaper } );
+    $process->on( stop => sub { shift()->disable_subreaper } );
     $process->stop();
 
     # The process will print "Hello User"
