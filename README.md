@@ -167,7 +167,7 @@ You do not need to specify `code`, it is implied if no arguments is given.
 ## args
 
     use Mojo::IOLoop::ReadWriteProcess;
-    my $process = Mojo::IOLoop::ReadWriteProcess->new(code => sub { print "Hello ".shift() }, args => "User" );
+    my $process = Mojo::IOLoop::ReadWriteProcess->new(code => sub { print "Hello ".$_[1] }, args => "User" );
     $process->start();
     $process->on( stop => sub { print "Process: ".(+shift()->pid)." finished"; } );
     $process->stop();
