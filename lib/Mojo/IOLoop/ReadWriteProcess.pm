@@ -516,7 +516,6 @@ sub stop {
         . ") to kill process: "
         . $self->pid)
       if DEBUG;
-    sleep $self->sleeptime_during_kill if $self->sleeptime_during_kill;
     $self->session->_protect(
       sub {
         local $?;
@@ -525,6 +524,7 @@ sub stop {
         $self->_status($?) if $ret == $self->process_id;
       });
     $attempt++;
+    sleep $self->sleeptime_during_kill if $self->sleeptime_during_kill;
   }
 
   sleep $self->kill_sleeptime if $self->kill_sleeptime;

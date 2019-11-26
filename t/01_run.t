@@ -76,6 +76,7 @@ subtest 'process is_running()' => sub {
     });
 
   $p->start();
+  sleep 1;    # Give chance to print some output
   $p->stop();
 
   close(CHILD);
