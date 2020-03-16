@@ -97,6 +97,7 @@ subtest 'process is_running()' => sub {
     });
   $p->restart()->restart()->restart();
   is $p->is_running, 1, "Process now is running";
+  sleep 1;    # Give chance to print some output
   $p->stop();
   close(CHILD);
   @output = <PARENT>;
@@ -116,6 +117,7 @@ subtest 'process is_running()' => sub {
   }
 
   is $p->is_running, 1, "Process now is running";
+  sleep 1;    # Give chance to print some output
   $p->stop();
   close(CHILD);
   @output = <PARENT>;
