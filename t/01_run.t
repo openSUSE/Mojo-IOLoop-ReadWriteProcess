@@ -21,7 +21,7 @@ subtest process => sub {
     local *STDERR = $handle;
     $c->_diag("FOOTEST");
   };
-  like $buffer, qr/>> main::__ANON__\(\): FOOTEST/,
+  like $buffer, qr/>> main::__ANON__(.*\])*\(\): FOOTEST/,
     "diag() correct output format";
 };
 
