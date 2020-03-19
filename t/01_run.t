@@ -210,11 +210,9 @@ subtest 'process execute()' => sub {
   $p->start();
   $p->stop();
   is $p->is_running, 1, 'process is still running';
-  like(
-    ${(@{$p->error})[0]}, qr/Could not kill process/,
-    'Error is not empty if process could not be
-killed'
-  );
+  my $err = ${(@{$p->error})[0]};
+  my $exp = qr/Could not kill process/;
+  like $err, $exp , 'Error is not empty if process could not be killed';
   $p->max_kill_attempts(50);
   $p->blocking_stop(0);
   $p->stop();
