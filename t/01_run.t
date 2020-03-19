@@ -223,7 +223,7 @@ killed'
   $p->max_kill_attempts(5);
   $p->stop;
   $p->wait;
-  is $p->is_running, 0, 'process is shutten down';
+  is $p->is_running, 0, 'process is shut down';
   is $p->errored,    1, 'Process died and errored';
 
 
@@ -237,7 +237,7 @@ killed'
   sleep 4;
 
   is $p->is_running, 0,
-    'process is shutten down by kill signal when "blocking_stop => 1"';
+    'process is shut down by kill signal when "blocking_stop => 1"';
 
   my $pidfile = tempfile;
   $p = Mojo::IOLoop::ReadWriteProcess->new(
