@@ -52,11 +52,9 @@ subtest 'process basic functions' => sub {
         open STDERR, ">&", \*CHILD or die $!;
         print STDERR "FOOBARFTW\n" while 1;
       })->start();
-    sleep 1;    # Give chance to print some output
-    $p->stop();
-
     close(CHILD);
-    @output = <PARENT>;
+    @output = scalar <PARENT>;
+    $p->stop();
     chomp @output;
   }
   is $output[0], "FOOBARFTW", 'right output';
@@ -76,11 +74,10 @@ subtest 'process is_running()' => sub {
     });
 
   $p->start();
-  sleep 1;    # Give chance to print some output
+  close(CHILD);
+  @output = scalar <PARENT>;
   $p->stop();
 
-  close(CHILD);
-  @output = <PARENT>;
   close(PARENT);
   chomp @output;
   is $output[0], "FOOBARFTW", 'right output from process';
@@ -97,10 +94,9 @@ subtest 'process is_running()' => sub {
     });
   $p->restart()->restart()->restart();
   is $p->is_running, 1, "Process now is running";
-  sleep 1;    # Give chance to print some output
-  $p->stop();
   close(CHILD);
-  @output = <PARENT>;
+  @output = scalar <PARENT>;
+  $p->stop();
   chomp @output;
   is $output[0], "FOOBAZFTW", 'right output from process';
   is $p->is_running, 0, "Process now is not running";
@@ -110,17 +106,16 @@ subtest 'process is_running()' => sub {
   $p->restart();
 
 # Give time to the child to be up
-  my $attempts = 10;
+  my $attempts = 100;
   until ($p->is_running || $attempts == 0) {
-    sleep 1;
+    sleep .1;
     $attempts--;
   }
 
   is $p->is_running, 1, "Process now is running";
-  sleep 1;    # Give chance to print some output
-  $p->stop();
   close(CHILD);
-  @output = <PARENT>;
+  @output = scalar <PARENT>;
+  $p->stop();
   chomp @output;
   is $output[0], "FOOBAZFTW", 'right output from process';
 };
@@ -187,7 +182,7 @@ subtest 'process execute()' => sub {
   is $p->getline, "TEST error print\n",
     'Get STDERR output from stdout, always in getline()';
   $p->stop();
-  is $p->getline, "TEST normal print\n",
+  like $p->getline, qr/TEST (exiting|normal print)/,
     'Still able to get stdout output, always in getline()';
 
   my $p2 = Mojo::IOLoop::ReadWriteProcess->new(
@@ -232,7 +227,6 @@ subtest 'process execute()' => sub {
     execute           => $test_script,
     max_kill_attempts => -1              # ;)
   )->start()->stop();
-  sleep 4;
 
   is $p->is_running, 0,
     'process is shut down by kill signal when "blocking_stop => 1"';
@@ -306,11 +300,10 @@ subtest 'process code()' => sub {
   is(IO::Select->new($p->read_stream)->can_read(10),
     1, 'can read from stdout handle');
   is $p->getline, "Enter something : you entered FOOBAR\n", 'can read output';
-  $p->stop();
-
   is $p->channel_out->getline, "FOOBARftw\n", "can read from internal channel";
   is $p->channel_read_handle->getline, "PONG\n",
     "can read from internal channel";
+  $p->stop();
   is $p->is_running, 0, 'process is not running';
   $p->restart();
 
@@ -413,7 +406,6 @@ subtest 'process code()' => sub {
       print STDERR "TEST error print\n" for (1 .. 6);
       my $a = <STDIN>;
     })->start();
-  sleep 1;
   like $p->stderr_all, qr/TEST error print/,
 'read all from stderr, is like reading all from stdout when separate_err = 0';
   $p->stop()->separate_err(1)->start();
