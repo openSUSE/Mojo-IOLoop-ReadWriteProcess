@@ -33,12 +33,12 @@ use Exporter 'import';
 use constant DEBUG => $ENV{MOJO_PROCESS_DEBUG};
 
 has [
-  qw(kill_sleeptime sleeptime_during_kill total_sleeptime_during_kill),
+  qw(kill_sleeptime sleeptime_during_kill),
   qw(separate_err autoflush set_pipes verbose),
   qw(internal_pipes channels)
 ] => 1;
 
-has [qw(blocking_stop serialize quirkiness)] => 0;
+has [qw(blocking_stop serialize quirkiness total_sleeptime_during_kill)] => 0;
 
 has [
   qw(execute code process_id pidfile return_status),
@@ -47,6 +47,7 @@ has [
 ];
 
 has max_kill_attempts => 5;
+has kill_whole_group  => 0;
 
 has args  => sub { [] };
 has error => sub { Mojo::Collection->new };
@@ -491,44 +492,44 @@ sub start {
 sub send_signal {
   my $self   = shift;
   my $signal = shift // $self->_default_kill_signal;
-  return unless $self->is_running;
-  $self->_diag("Sending signal '$signal' to " . $self->process_id) if DEBUG;
-  kill $signal => $self->process_id;
+  my $pid    = shift // $self->process_id;
+  return unless $self->kill_whole_group || $self->is_running;
+  $self->_diag("Sending signal '$signal' to $pid") if DEBUG;
+  kill $signal => $pid;
   return $self;
 }
 
 sub stop {
   my $self = shift;
 
-  return $self unless defined $self->pid;
-
-  $self->_diag("Stopping " . $self->pid) if DEBUG;
-
+  my $pid = $self->pid;
+  return $self unless defined $pid;
   return $self->_shutdown(1) unless $self->is_running;
+  $self->_diag("Stopping $pid") if DEBUG;
 
   my $ret;
-  my $attempt    = 1;
-  my $timeout    = $self->total_sleeptime_during_kill // 0;
-  my $sleep_time = $self->sleeptime_during_kill;
-  until ((defined $ret && $ret == $self->process_id)
-      || !$self->is_running
-      || ($attempt > $self->max_kill_attempts && $timeout <= 0))
+  my $attempt      = 1;
+  my $timeout      = $self->total_sleeptime_during_kill // 0;
+  my $sleep_time   = $self->sleeptime_during_kill;
+  my $max_attempts = $self->max_kill_attempts;
+  my $signal       = $self->_default_kill_signal;
+  $pid = -getpgrp($pid) if $self->kill_whole_group;
+  until ((defined $ret && ($ret == $pid || $ret == -1))
+      || ($attempt > $max_attempts && $timeout <= 0))
   {
     my $send_signal = $attempt == 1 || $timeout <= 0;
-    $self->_diag("attempt ($attempt/"
-        . $self->max_kill_attempts
-        . ") to kill process: "
-        . $self->pid)
+    $self->_diag(
+      "attempt $attempt/$max_attempts to kill process: $pid, timeout: $timeout")
       if DEBUG && $send_signal;
     $self->session->_protect(
       sub {
         local $?;
         if ($send_signal) {
-          $self->send_signal;
+          $self->send_signal($signal, $pid);
           ++$attempt;
         }
-        $ret = waitpid($self->process_id, WNOHANG);
-        $self->_status($?) if $ret == $self->process_id;
+        $ret = waitpid($pid, WNOHANG);
+        $self->_status($?) if $ret == $pid || $ret == -1;
       });
     if ($sleep_time) {
       sleep $sleep_time;
@@ -538,19 +539,17 @@ sub stop {
 
   sleep $self->kill_sleeptime if $self->kill_sleeptime;
 
-  if ($self->blocking_stop && $self->is_running) {
-    $self->_diag(
-      "Could not kill process id: " . $self->process_id . ", blocking attempt")
-      if DEBUG;
+  if ($self->blocking_stop) {
+    $self->_diag("Could not kill process id: $pid, blocking attempt") if DEBUG;
     $self->emit('process_stuck');
 
     ### XXX: avoid to protect on blocking.
-    $self->send_signal($self->_default_blocking_signal);
-    $ret = waitpid($self->process_id, 0);
-    $self->_status($?) if $ret == $self->process_id;
+    $self->send_signal($self->_default_blocking_signal, $pid);
+    $ret = waitpid($pid, 0);
+    $self->_status($?) if $ret == $pid || $ret == -1;
   }
-  elsif ($self->is_running) {
-    $self->_diag("Could not kill process id: " . $self->process_id) if DEBUG;
+  else {
+    $self->_diag("Could not kill process id: $pid") if DEBUG;
     $self->_new_err('Could not kill process');
   }
 
@@ -864,6 +863,20 @@ Defaults to C<5>, is the number of attempts before bailing out.
 
 It can be used with blocking_stop, so if the number of attempts are exhausted,
 a SIGKILL and waitpid will be tried at the end.
+
+=head2 kill_whole_group
+
+    use Mojo::IOLoop::ReadWriteProcess;
+    my $process = Mojo::IOLoop::ReadWriteProcess->new(code => sub { setpgrp(0, 0); exec(...); }, kill_whole_group => 1 );
+    $process->start();
+    $process->send_signal(...); # Will skip the usual check whether $process->pid is running
+    $process->stop();           # Kills the entire process group and waits for all processes in the group to finish
+
+Defaults to C<0>, whether to send signals (e.g. to stop) to the entire process group.
+
+This is useful when the sub process creates further sub processes and creates a new process
+group as shown in the example. In this case it might be useful to take care of the entire process
+group when stopping and wait for every process in the group to finish.
 
 =head2 collect_status
 
