@@ -22,6 +22,7 @@ use IO::Handle;
 use IO::Pipe;
 use IO::Select;
 use IPC::Open3;
+use Time::HiRes 'sleep';
 use Symbol 'gensym';
 use Storable;
 use POSIX qw( :sys_wait_h :signal_h );
@@ -32,7 +33,7 @@ use Exporter 'import';
 use constant DEBUG => $ENV{MOJO_PROCESS_DEBUG};
 
 has [
-  qw(kill_sleeptime sleeptime_during_kill),
+  qw(kill_sleeptime sleeptime_during_kill total_sleeptime_during_kill),
   qw(separate_err autoflush set_pipes verbose),
   qw(internal_pipes channels)
 ] => 1;
@@ -506,25 +507,33 @@ sub stop {
   return $self->_shutdown(1) unless $self->is_running;
 
   my $ret;
-  my $attempt = 1;
+  my $attempt    = 1;
+  my $timeout    = $self->total_sleeptime_during_kill // 0;
+  my $sleep_time = $self->sleeptime_during_kill;
   until ((defined $ret && $ret == $self->process_id)
       || !$self->is_running
-      || $attempt > $self->max_kill_attempts)
+      || ($attempt > $self->max_kill_attempts && $timeout <= 0))
   {
+    my $send_signal = $attempt == 1 || $timeout <= 0;
     $self->_diag("attempt ($attempt/"
         . $self->max_kill_attempts
         . ") to kill process: "
         . $self->pid)
-      if DEBUG;
+      if DEBUG && $send_signal;
     $self->session->_protect(
       sub {
         local $?;
-        $self->send_signal();
+        if ($send_signal) {
+          $self->send_signal;
+          ++$attempt;
+        }
         $ret = waitpid($self->process_id, WNOHANG);
         $self->_status($?) if $ret == $self->process_id;
       });
-    $attempt++;
-    sleep $self->sleeptime_during_kill if $self->sleeptime_during_kill;
+    if ($sleep_time) {
+      sleep $sleep_time;
+      $timeout -= $sleep_time;
+    }
   }
 
   sleep $self->kill_sleeptime if $self->kill_sleeptime;
