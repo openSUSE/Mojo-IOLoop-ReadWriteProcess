@@ -459,7 +459,46 @@ subtest 'process code()' => sub {
   $p->write("a");
   $p->wait_stop();
   like $p->stderr_all, qr/TEST error print/, 'read all from stderr works';
-  is $p->read_all, '', 'stdout is empty';
+  is $p->read_all,     '',                   'stdout is empty';
+};
+
+subtest stop_whole_process_group_gracefully => sub {
+  my $test_script = "$FindBin::Bin/data/simple_fork.pl";
+  plan skip_all =>
+    "You do not seem to have $test_script which is required to run the test"
+    unless -e $test_script;
+
+  # run the "term_trap.pl" script and its sub processes within its own
+  # process group
+  # notes: - Not using "term_trap.sh" here because bash interferes with the
+  #          process group.
+  #        - Set TOTAL_SLEEPTIME_DURING_KILL to a notable number of seconds
+  #          to check whether the sub processes would actually be granted
+  #          this number of seconds before getting killed. This is not set by
+  #          default to avoid slowing down the CI.
+  my $sub_process = Mojo::IOLoop::ReadWriteProcess->new(
+    kill_sleeptime              => 0.01,
+    sleeptime_during_kill       => 0.01,
+    max_kill_attempts           => 1,
+    separate_err                => 0,
+    blocking_stop               => 1,
+    kill_whole_group            => 1,
+    total_sleeptime_during_kill => $ENV{TOTAL_SLEEPTIME_DURING_KILL} // 0.05,
+    code                        => sub {
+      $SIG{TERM} = 'IGNORE';
+      setpgrp(0, 0);
+      exec(perl => $test_script);
+    })->start();
+
+  # wait until the sub process changes its process group
+  # note: Otherwise it still has the process group of this unit test and calling
+  #       stop would also stop the test itself.
+  my $test_gpid       = getpgrp(0);
+  my $sub_process_pid = $sub_process->pid;
+  sleep 0.1 while $test_gpid == getpgrp($sub_process_pid);
+
+  $sub_process->stop();
+  is $sub_process->is_running, 0, 'process is shut down via kill_whole_group';
 };
 
 subtest process_debug => sub {
