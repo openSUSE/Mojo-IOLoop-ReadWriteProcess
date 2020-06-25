@@ -161,8 +161,8 @@ subtest 'process execute()' => sub {
       qw(FOO
         BAZ)
     ])->start();
-  is $p->stdout, "TEST normal print\n", 'Get right output from stdout';
-  is $p->err_getline, "TEST error print\n", 'Get right output from stderr';
+  is $p->stdout,      "TEST normal print\n", 'Get right output from stdout';
+  is $p->err_getline, "TEST error print\n",  'Get right output from stderr';
   is $p->is_running, 1, 'process is still waiting for our input';
   $p->write("FOOBAR");
   is $p->getline, "you entered FOOBAR\n",
