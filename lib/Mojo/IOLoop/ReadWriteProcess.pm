@@ -137,8 +137,8 @@ sub _open {
 
   $self->read_stream(IO::Handle->new_from_fd($rdr, "r"));
   $self->write_stream(IO::Handle->new_from_fd($wtr, "w"));
-  $self->error_stream(($self->separate_err) ?
-      IO::Handle->new_from_fd($err, "r")
+  $self->error_stream(($self->separate_err)
+    ? IO::Handle->new_from_fd($err, "r")
     : $self->write_stream);
 
   return $self;
@@ -177,23 +177,23 @@ sub _fork_collect_status {
 
   if ($self->_internal_return) {
     $return_reader
-      = $self->_internal_return->isa("IO::Pipe::End") ?
-      $self->_internal_return
+      = $self->_internal_return->isa("IO::Pipe::End")
+      ? $self->_internal_return
       : $self->_internal_return->reader();
     $self->_new_err('Cannot read from return code pipe') && return
       unless IO::Select->new($return_reader)->can_read(10);
     $rt = $return_reader->getline();
     $self->_diag("Forked code Process Returns: " . ($rt ? $rt : 'nothing'))
       if DEBUG;
-    $self->return_status($self->serialize ?
-        eval { $self->_deserialize->(b64_decode($rt)) }
-      : $rt ? $rt
-      :       ());
+    $self->return_status(
+        $self->serialize ? eval { $self->_deserialize->(b64_decode($rt)) }
+      : $rt              ? $rt
+      :                    ());
   }
   if ($self->_internal_err) {
     $internal_err_reader
-      = $self->_internal_err->isa("IO::Pipe::End") ?
-      $self->_internal_err
+      = $self->_internal_err->isa("IO::Pipe::End")
+      ? $self->_internal_err
       : $self->_internal_err->reader();
     $self->_new_err('Cannot read from errors code pipe') && return
       unless IO::Select->new($internal_err_reader)->can_read(10);
@@ -265,8 +265,8 @@ sub _fork {
     if ($self->internal_pipes) {
       if ($self->_internal_err) {
         $internal_err
-          = $self->_internal_err->isa("IO::Pipe::End") ?
-          $self->_internal_err
+          = $self->_internal_err->isa("IO::Pipe::End")
+          ? $self->_internal_err
           : $self->_internal_err->writer();
         $internal_err->autoflush(1);
       }
@@ -274,8 +274,7 @@ sub _fork {
       if ($self->_internal_return) {
         $return
           = $self->_internal_return->isa("IO::Pipe::End")
-          ?
-          $self->_internal_return
+          ? $self->_internal_return
           : $self->_internal_return->writer();
         $return->autoflush(1);
       }
@@ -293,8 +292,8 @@ sub _fork {
       $stdout = $output_pipe->writer() if $output_pipe;
       $stderr
         = (!$self->separate_err) ? $stdout
-        : $output_err_pipe ? $output_err_pipe->writer()
-        :                    undef;
+        : $output_err_pipe       ? $output_err_pipe->writer()
+        :                          undef;
       $stdin = $input_pipe->reader() if $input_pipe;
       open STDERR, ">&", $stderr
         or !!$internal_err->write($!)
@@ -385,15 +384,15 @@ sub wait {
 }
 
 sub wait_stop { shift->wait->stop }
-sub errored { !!@{shift->error} ? 1 : 0 }
+sub errored   { !!@{shift->error} ? 1 : 0 }
 
 # PPC64: Treat msb on neg (different cpu/perl interpreter version)
 sub _st { my $st = shift >> 8; ($st & 0x80) ? (0x100 - ($st & 0xFF)) : $st }
 
 sub exit_status {
       defined $_[0]->_status && $_[0]->quirkiness ? _st(shift->_status)
-    : defined $_[0]->_status ? shift->_status >> 8
-    :                          undef;
+    : defined $_[0]->_status                      ? shift->_status >> 8
+    :                                               undef;
 }
 
 sub restart {
@@ -467,8 +466,8 @@ sub start {
   die "Nothing to do" unless !!$self->execute || !!$self->code;
 
   my @args
-    = $self->args ?
-    ref($self->args) eq "ARRAY"
+    = $self->args
+    ? ref($self->args) eq "ARRAY"
       ? @{$self->args}
       : $self->args
     : ();
