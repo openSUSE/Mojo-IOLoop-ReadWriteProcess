@@ -3,7 +3,7 @@ requires 'IPC::SharedMem';
 
 on configure => sub {
     requires 'Module::Build';
-    requires 'perl', '5.16';
+    requires 'perl', '>=5.16';
 };
 
 on test => sub {

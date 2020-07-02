@@ -29,7 +29,7 @@
       "configure" : {
          "requires" : {
             "Module::Build" : "0.4005",
-            "perl" : "5.16"
+            "perl" : "5.016"
          }
       },
       "develop" : {
