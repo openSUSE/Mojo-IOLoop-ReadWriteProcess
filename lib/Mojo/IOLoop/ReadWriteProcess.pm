@@ -535,6 +535,7 @@ sub stop {
       $timeout -= $sleep_time;
     }
   }
+  return $self->_shutdown if defined $self->_status;
 
   sleep $self->kill_sleeptime if $self->kill_sleeptime;
 
