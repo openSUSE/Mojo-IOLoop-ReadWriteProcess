@@ -43,6 +43,7 @@ sub _protect {
 }
 
 sub enable {
+  return if $singleton->handler();
   $singleton->handler($SIG{CHLD});
   $singleton->_protect(
     sub {
