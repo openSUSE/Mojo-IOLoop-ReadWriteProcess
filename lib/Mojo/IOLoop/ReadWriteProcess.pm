@@ -221,6 +221,8 @@ sub _fork {
   # Separated handles that could be used for internal comunication.
   my ($channel_in, $channel_out);
 
+  $self->session->enable;
+
   if ($self->set_pipes) {
     $input_pipe = IO::Pipe->new()
       or $self->_new_err('Failed creating input pipe');
@@ -336,8 +338,6 @@ sub _fork {
     $self->_exit($@ // $!);
   }
   $self->process_id($pid);
-
-  $self->session->enable;
 
   return $self unless $self->set_pipes();
 
