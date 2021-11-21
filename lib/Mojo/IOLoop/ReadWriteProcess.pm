@@ -645,7 +645,7 @@ Mojo::IOLoop::ReadWriteProcess - Execute external programs or internal code bloc
     my $output = process( sub { print "Hello\n" } )->start()->wait_stop->getline;
 
     # Handles seamelessy also external processes:
-    my $process = process(execute=> '/path/to/bin' )->args(qw(foo bar baz));
+    my $process = process(execute=> '/path/to/bin' )->args([qw(foo bar baz)]);
     $process->start();
     my $line_output = $process->getline();
     my $pid = $process->pid();
@@ -798,7 +798,7 @@ You do not need to specify C<code>, it is implied if no arguments is given.
 
     # The process will print "Hello User"
 
-Array or arrayref of options to pass by to the external binary or the code block.
+Arguments pass to the external binary or the code block. Use arrayref to pass many.
 
 =head2 blocking_stop
 
