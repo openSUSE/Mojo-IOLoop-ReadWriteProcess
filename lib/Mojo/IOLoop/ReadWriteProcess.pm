@@ -43,13 +43,12 @@ has [qw(blocking_stop serialize quirkiness total_sleeptime_during_kill)] => 0;
 has [
   qw(execute code process_id pidfile return_status),
   qw(channel_in channel_out write_stream read_stream error_stream),
-  qw(_internal_err _internal_return _status)
+  qw(_internal_err _internal_return _status args)
 ];
 
 has max_kill_attempts => 5;
 has kill_whole_group  => 0;
 
-has args  => sub { [] };
 has error => sub { Mojo::Collection->new };
 
 has ioloop  => sub { Mojo::IOLoop->singleton };
@@ -465,7 +464,7 @@ sub start {
   die "Nothing to do" unless !!$self->execute || !!$self->code;
 
   my @args
-    = $self->args
+    = defined($self->args)
     ? ref($self->args) eq "ARRAY"
       ? @{$self->args}
       : $self->args
