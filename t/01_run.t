@@ -540,4 +540,24 @@ process';
 'setting MOJO_PROCESS_DEBUG to 1 enables debug mode when executing external process';
 };
 
+subtest 'process_args' => sub {
+  use Mojo::IOLoop::ReadWriteProcess;
+  my $code = sub {
+    shift; 
+    print $_.$/ for(@_);
+  };
+
+  my $p = Mojo::IOLoop::ReadWriteProcess->new($code, args => '0' )->start->wait_stop();
+  is($p->read_all_stdout(), "0$/", '1) False scalar value was given as args.');
+
+  $p = Mojo::IOLoop::ReadWriteProcess->new($code)->args('0')->start->wait_stop();
+  is($p->read_all_stdout(), "0$/", '2) False scalar value was given as args.');
+
+  $p = Mojo::IOLoop::ReadWriteProcess->new($code, args => [(0..3)] )->start->wait_stop();
+  is($p->read_all_stdout(), "0$/1$/2$/3$/", '1) Args given as arrayref.');
+
+  $p = Mojo::IOLoop::ReadWriteProcess->new($code)->args([(0..3)])->start->wait_stop();
+  is($p->read_all_stdout(), "0$/1$/2$/3$/", '2) Args given as arrayref.');
+};
+
 done_testing;
