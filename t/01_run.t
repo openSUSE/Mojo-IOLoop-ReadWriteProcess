@@ -301,6 +301,13 @@ subtest 'process execute()' => sub {
   $p->stop();
 };
 
+subtest 'process(execute =>"/usr/bin/true")' => sub {
+  use Mojo::IOLoop::ReadWriteProcess qw(process);
+  plan skip_all => "Missing '/usr/bin/true'" unless -e '/usr/bin/true';
+
+  is(process(execute => '/usr/bin/true')->quirkiness(1)->start()->wait_stop()->exit_status(), 0, 'Simple exec of "/usr/bin/true" return 0');
+};
+
 subtest 'process code()' => sub {
   use Mojo::IOLoop::ReadWriteProcess;
   use IO::Select;

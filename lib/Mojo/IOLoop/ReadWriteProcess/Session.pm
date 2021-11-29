@@ -66,7 +66,7 @@ sub _collect {
 }
 
 sub collect {
-  my ($errno, $status, $pid) = (pop, pop, pop);
+  my ($self, $pid, $status, $errno) = @_;
   if ($singleton->resolve($pid)) {
     $singleton->_collect($pid => $status => $errno);
     $singleton->emit(collected => $singleton->resolve($pid));
@@ -85,6 +85,9 @@ sub register {
   my ($process, $pid) = (pop, pop);
   $singleton->process_table()->{$pid} = \$process;
   $singleton->emit(register => $process);
+  if (my $orphan = delete($singleton->{orphans}->{$pid}) ){
+      $singleton->collect($orphan->process_id(), $orphan->_status());
+  }
 }
 
 sub unregister { delete($singleton->process_table()->{+pop()}) }
