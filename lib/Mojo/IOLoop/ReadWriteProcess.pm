@@ -121,6 +121,7 @@ sub _open {
   $self->_diag('Execute: ' . (join ', ', map { "'$_'" } @args)) if DEBUG;
 
   $self->session->enable;
+  $self->on(collect_status => \&_open_collect_status);
 
   my ($wtr, $rdr, $err);
   $err = gensym;
@@ -130,7 +131,6 @@ sub _open {
   $self->process_id($pid);
 
   # Defered collect of return status and removal of pidfile
-  $self->on(collect_status => \&_open_collect_status);
 
   return $self unless $self->set_pipes();
 
