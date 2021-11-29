@@ -133,7 +133,7 @@ sub contains {
   $singleton->all->grep(sub { $_->pid eq $pid })->size == 1;
 }
 
-sub reset { @{+shift}{qw(events orphans process_table collected_info)} = ({}, {}, {}, []) }
+sub reset { @{+shift}{qw(events orphans process_table collected_info handler)} = ({}, {}, {}, [], undef) }
 
 # XXX: This should be replaced by PR_GET_CHILD_SUBREAPER
 sub disable_subreaper {
