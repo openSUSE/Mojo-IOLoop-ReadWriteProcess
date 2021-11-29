@@ -424,7 +424,7 @@ sub _getline {
 
 sub _getlines {
   return unless IO::Select->new($_[0])->can_read(10);
-  wantarray ? shift->getlines : join '\n', @{[shift->getlines]};
+  wantarray ? shift->getlines : join '', @{[shift->getlines]};
 }
 
 # Write to the controlled-process STDIN
