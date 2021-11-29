@@ -120,7 +120,6 @@ sub _open {
   my ($self, @args) = @_;
   $self->_diag('Execute: ' . (join ', ', map { "'$_'" } @args)) if DEBUG;
 
-  $self->session->enable;
   $self->on(collect_status => \&_open_collect_status);
 
   my ($wtr, $rdr, $err);
@@ -220,7 +219,6 @@ sub _fork {
   # Separated handles that could be used for internal comunication.
   my ($channel_in, $channel_out);
 
-  $self->session->enable;
 
   if ($self->set_pipes) {
     $input_pipe = IO::Pipe->new()
@@ -397,7 +395,11 @@ sub exit_status {
 sub restart {
   $_[0]->is_running ? $_[0]->stop->start : $_[0]->start;
 }
-sub is_running { $_[0]->process_id ? kill 0 => $_[0]->process_id : 0; }
+sub is_running {
+    my ($self) = shift;
+    $self->session->consume_collected_info;
+    $self->process_id ? kill 0 => $self->process_id : 0;
+}
 
 sub write_pidfile {
   my ($self, $pidfile) = @_;
@@ -472,6 +474,8 @@ sub start {
 
   $self->session->enable_subreaper if $self->subreaper;
   $self->_status(undef);
+  $self->session->enable;
+
 
   if ($self->code) {
     $self->_fork($self->code, @args);
