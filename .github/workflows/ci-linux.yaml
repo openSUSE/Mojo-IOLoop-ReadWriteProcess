@@ -1,0 +1,42 @@
+name: linux
+on:
+  push:
+    branches:
+      - '*'
+  pull_request:
+    branches:
+      - '*'
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: ['ubuntu-latest']
+        perl: 
+          - '5.16'
+          - '5.18'
+          - '5.20'
+          - '5.22'
+          - '5.24'
+          - '5.26'
+          - '5.28'
+          - '5.30'
+    name: Perl ${{ matrix.perl }} on ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: shogo82148/actions-setup-perl@v1
+      - name: perl -V
+        run: perl -V
+      - name: Set up perl
+        # with:
+        #  perl-version: ${{ matrix.perl }}
+        run: |
+          cpanm --installdeps .
+          cpanm -n Test::Pod Test::Pod::Coverage Module::Build Devel::Cover::Report::Codecov
+          perl Build.PL
+          ./Build build
+      - name: Run tests 
+        run: |
+          TEST_SHARED=1 TEST_SUBREAPER=1 cover -test
+
+
