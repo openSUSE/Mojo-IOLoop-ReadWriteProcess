@@ -567,4 +567,15 @@ subtest 'process_args' => sub {
   is($p->read_all_stdout(), "0$/1$/2$/3$/", '2) Args given as arrayref.');
 };
 
+subtest 'process in process' => sub {
+    my $p = process(sub {
+        is( process(execute => '/usr/bin/true')->quirkiness(1)->start()->wait_stop()->exit_status(), 0, 'process(execute) from process(code) -- retval check true');
+        is( process(execute => '/usr/bin/false')->quirkiness(1)->start()->wait_stop()->exit_status(), 1, 'process(execute) from process(code) -- retval check false');
+        is( process(sub { print 'sub-sub-process'})->start()->wait_stop()->read_all_stdout, 'sub-sub-process', 'process(code) works from process(code)');
+        print 'DONE';
+    })->start()->wait_stop();
+
+    is ($p->read_all_stdout(), 'DONE', "Use ReadWriteProcess inside of ReadWriteProcess(code=>'')");
+};
+
 done_testing;
