@@ -148,6 +148,7 @@ sub _collect {
   my ($self, $pid) = @_;
   $pid //= $self->pid;
 
+  $self->session->consume_collected_info;
   $self->session->_protect(
     sub {
       local $?;
