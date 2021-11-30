@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/mudler/Mojo-IOLoop-ReadWriteProcess.svg?branch=master)](https://travis-ci.org/mudler/Mojo-IOLoop-ReadWriteProcess) [![Coverage Status](http://codecov.io/github/mudler/Mojo-IOLoop-ReadWriteProcess/coverage.svg?branch=master)](https://codecov.io/github/mudler/Mojo-IOLoop-ReadWriteProcess?branch=master)
+[![Build Status](https://travis-ci.org/mudler/Mojo-IOLoop-ReadWriteProcess.svg?branch=master)](https://travis-ci.org/mudler/Mojo-IOLoop-ReadWriteProcess) [![Coverage Status](http://codecov.io/github/mudler/Mojo-IOLoop-ReadWriteProcess/coverage.svg?branch=master)](https://codecov.io/github/mudler/Mojo-IOLoop-ReadWriteProcess?branch=master)[![linux](https://github.com/mudler/Mojo-IOLoop-ReadWriteProcess/actions/workflows/ci-linux.yaml/badge.svg)](https://github.com/mudler/Mojo-IOLoop-ReadWriteProcess/actions/workflows/ci-linux.yaml)
 # NAME
 
 Mojo::IOLoop::ReadWriteProcess - Execute external programs or internal code blocks as separate process.
