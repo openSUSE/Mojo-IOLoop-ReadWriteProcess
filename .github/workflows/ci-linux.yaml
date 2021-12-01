@@ -37,6 +37,4 @@ jobs:
           ./Build build
       - name: Run tests 
         run: |
-          TEST_SHARED=1 TEST_SUBREAPER=1 cover -test
-
-
+          TEST_SHARED=1 TEST_SUBREAPER=1 cover -test -report codecov
