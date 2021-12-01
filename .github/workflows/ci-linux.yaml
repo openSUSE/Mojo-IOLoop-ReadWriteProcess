@@ -32,12 +32,16 @@ jobs:
         #  perl-version: ${{ matrix.perl }}
         run: |
           cpanm --installdeps .
-          cpanm -n Test::Pod Test::Pod::Coverage Module::Build Devel::Cover::Report::Codecov
+          cpanm -n Test::Pod Test::Pod::Coverage Module::Build Devel::Cover Devel::Cover::Report::Codecovbash
           perl Build.PL
           ./Build build
       - name: Run tests 
         run: |
-          TEST_SHARED=1 TEST_SUBREAPER=1 cover -test
-      - name: Report coverage
-        run: |
-          cover -report codecov
+          TEST_SHARED=1 TEST_SUBREAPER=1 cover -test -report codecovbash
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v2
+        with:
+          perl-version: '5.30'
+          file: cover_db/codecov.json
+          fail_ci_if_error: true
+          verbose: true
