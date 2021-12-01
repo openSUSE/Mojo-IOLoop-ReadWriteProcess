@@ -1,5 +1,5 @@
 name = "Mojo-IOLoop-ReadWriteProcess"
-badges = ["codecov"]
+badges = ["codecov", "github-actions/linux"]
 module_maker="ModuleBuild"
 
 [build]
