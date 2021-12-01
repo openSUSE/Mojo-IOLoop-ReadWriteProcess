@@ -4,13 +4,13 @@
       "Ettore Di Giacinto <edigiacinto@suse.com>"
    ],
    "dynamic_config" : 0,
-   "generated_by" : "Minilla/v3.1.10, CPAN::Meta::Converter version 2.143240",
+   "generated_by" : "Minilla/v3.1.12, CPAN::Meta::Converter version 2.150010",
    "license" : [
       "perl_5"
    ],
    "meta-spec" : {
       "url" : "http://search.cpan.org/perldoc?CPAN::Meta::Spec",
-      "version" : "2"
+      "version" : 2
    },
    "name" : "Mojo-IOLoop-ReadWriteProcess",
    "no_index" : {
@@ -54,28 +54,20 @@
       }
    },
    "release_status" : "unstable",
-   "resources" : {
-      "bugtracker" : {
-         "web" : "https://github.com/mudler/Mojo-IOLoop-ReadWriteProcess/issues"
-      },
-      "homepage" : "https://github.com/mudler/Mojo-IOLoop-ReadWriteProcess",
-      "repository" : {
-         "type" : "git",
-         "url" : "git://github.com/mudler/Mojo-IOLoop-ReadWriteProcess.git",
-         "web" : "https://github.com/mudler/Mojo-IOLoop-ReadWriteProcess"
-      }
-   },
-   "version" : "0.28",
+   "version" : "0.31",
    "x_contributors" : [
+      "Adam Williamson <awilliam@redhat.com>",
       "Clemens Famulla-Conrad <cfamullaconrad@suse.de>",
       "Ettore Di Giacinto <mudler@gentoo.org>",
       "Ettore Di Giacinto <mudler@users.noreply.github.com>",
       "Marius Kittler <mkittler@suse.de>",
       "Mohammad S Anwar <mohammad.anwar@yahoo.com>",
       "Oliver Kurz <okurz@suse.de>",
+      "Santiago Zarate <229240+foursixnine@users.noreply.github.com>",
       "Santiago Zarate <santiago+github@zarate.co>",
       "Santiago Zarate <santiago@zarate.co>",
       "Sebastian Riedel <sri@cpan.org>"
    ],
+   "x_serialization_backend" : "JSON::PP version 4.06",
    "x_static_install" : 0
 }
