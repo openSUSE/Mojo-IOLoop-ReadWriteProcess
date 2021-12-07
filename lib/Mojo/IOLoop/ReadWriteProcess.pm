@@ -148,7 +148,6 @@ sub _collect {
   my ($self, $pid) = @_;
   $pid //= $self->pid;
 
-  $self->session->consume_collected_info;
   $self->session->_protect(
     sub {
       local $?;
@@ -247,7 +246,6 @@ sub _fork {
   }
 
   # Defered collect of return status
-
   $self->on(collect_status => \&_fork_collect_status);
 
   $self->_diag("Fork: " . $self->_deparse->coderef2text($code)) if DEBUG;
@@ -398,7 +396,6 @@ sub restart {
 }
 sub is_running {
     my ($self) = shift;
-    $self->session->consume_collected_info;
     $self->process_id ? kill 0 => $self->process_id : 0;
 }
 
@@ -477,18 +474,15 @@ sub start {
   $self->_status(undef);
   $self->session->enable;
 
-
   if ($self->code) {
     $self->_fork($self->code, @args);
   }
   elsif ($self->execute) {
     $self->_open($self->execute, @args);
   }
-
   $self->write_pidfile;
   $self->emit('start');
   $self->session->register($self->pid() => $self);
-
   return $self;
 }
 
