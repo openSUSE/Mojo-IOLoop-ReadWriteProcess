@@ -21,7 +21,6 @@ has subreaper      => 0;
 has collect_status => 1;
 has orphans        => sub { {} };
 has process_table  => sub { {} };
-has collected_info => sub { [] };
 has 'handler';
 
 my $singleton;
@@ -44,8 +43,7 @@ sub _protect {
 }
 
 sub enable {
-  return if $singleton->handler();
-  $singleton->handler($SIG{CHLD});
+  $singleton->handler($SIG{CHLD}) unless $singleton->handler;
   $singleton->_protect(
     sub {
       $SIG{CHLD} = sub {
@@ -53,7 +51,7 @@ sub enable {
         $singleton->emit('SIG_CHLD');
         return unless $singleton->collect_status;
         while ((my $pid = waitpid(-1, WNOHANG)) > 0) {
-          $singleton->add_collected_info($pid, $?, $!);
+          $singleton->collect($pid => $? => $!);
         }
       }
     });
@@ -79,17 +77,6 @@ sub collect {
     $singleton->emit(collected_orphan => $singleton->orphan($pid));
   }
   return $singleton;
-}
-
-sub consume_collected_info {
-    while(my $i = shift @{$singleton->collected_info}) {
-        $singleton->collect(@$i) 
-    }
-}
-
-sub add_collected_info {
-    shift;
-    push @{$singleton->collected_info}, [@_];
 }
 
 # Use as $pid => Mojo::IOLoop::ReadWriteProcess
@@ -133,7 +120,7 @@ sub contains {
   $singleton->all->grep(sub { $_->pid eq $pid })->size == 1;
 }
 
-sub reset { @{+shift}{qw(events orphans process_table collected_info handler)} = ({}, {}, {}, [], undef) }
+sub reset { @{+shift}{qw(events orphans process_table handler)} = ({}, {}, {}, [], undef) }
 
 # XXX: This should be replaced by PR_GET_CHILD_SUBREAPER
 sub disable_subreaper {
