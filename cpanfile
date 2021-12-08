@@ -8,6 +8,7 @@ on configure => sub {
 
 on test => sub {
     requires 'Test::More';
+    requires 'Test::Exception';
 };
 on develop => sub {
     requires 'Devel::Cover::Report::Codecovbash';
