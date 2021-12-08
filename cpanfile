@@ -9,3 +9,9 @@ on configure => sub {
 on test => sub {
     requires 'Test::More', '0.98';
 };
+on develop => sub {
+    requires 'Devel::Cover::Report::Codecovbash';
+    requires 'Devel::Cover';
+    requires 'Test::Pod::Coverage';
+    requires 'Test::Pod';
+}

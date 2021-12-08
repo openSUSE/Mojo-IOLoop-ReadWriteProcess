@@ -31,8 +31,7 @@ jobs:
         # with:
         #  perl-version: ${{ matrix.perl }}
         run: |
-          cpanm --installdeps .
-          cpanm -n Test::Pod Test::Pod::Coverage Module::Build Devel::Cover Devel::Cover::Report::Codecovbash
+          cpanm --with-develop --installdeps .
           perl Build.PL
           ./Build build
       - name: Run tests 
