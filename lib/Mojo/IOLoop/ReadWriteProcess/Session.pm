@@ -23,7 +23,6 @@ has orphans        => sub { {} };
 has process_table  => sub { {} };
 has collected_info => sub { [] };
 has 'handler';
-has emit_from_sigchld => 1;
 
 my $singleton;
 
@@ -54,9 +53,12 @@ sub enable {
         $singleton->emit('SIG_CHLD');
         return unless $singleton->collect_status;
         while ((my $pid = waitpid(-1, WNOHANG)) > 0) {
-          $singleton->add_collected_info($pid, $?, $!);
+            if ($singleton->resolve($pid)) {
+                $singleton->collect($pid, $?, $!) 
+            } else {
+                $singleton->add_collected_info($pid, $?, $!);
+            }
         }
-        $singleton->consume_collected_info() if ($singleton->emit_from_sigchld());
       }
     });
 }
@@ -135,7 +137,7 @@ sub contains {
   $singleton->all->grep(sub { $_->pid eq $pid })->size == 1;
 }
 
-sub reset { @{+shift}{qw(events orphans process_table collected_info handler emit_from_sigchld)} = ({}, {}, {}, [], undef, 1) }
+sub reset { @{+shift}{qw(events orphans process_table collected_info handler)} = ({}, {}, {}, [], undef) }
 
 # XXX: This should be replaced by PR_GET_CHILD_SUBREAPER
 sub disable_subreaper {

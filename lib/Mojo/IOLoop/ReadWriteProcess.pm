@@ -477,9 +477,6 @@ sub start {
   $self->_status(undef);
   $self->session->enable;
 
-  my $old_emit_from_sigchld = $self->session->emit_from_sigchld;
-  $self->session->emit_from_sigchld(0);
-
   if ($self->code) {
     $self->_fork($self->code, @args);
   }
@@ -490,9 +487,7 @@ sub start {
   $self->write_pidfile;
   $self->emit('start');
   $self->session->register($self->pid() => $self);
-
-  $self->session->emit_from_sigchld($old_emit_from_sigchld);
-  $self->session->consume_collected_info if ($old_emit_from_sigchld);
+  $self->session->consume_collected_info; 
 
   return $self;
 }
