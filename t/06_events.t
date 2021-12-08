@@ -97,5 +97,65 @@ subtest collect_status => sub {
   is(Mojo::IOLoop::ReadWriteProcess::Session->singleton->all->size,         1);
 };
 
+subtest collect_from_signal_handler => sub {
+  my $p = process(execute => '/usr/bin/true');
+  my $collected = 0;
+  my $orphan = 0;
+  my $sig_chld = 0;
+  $p->session->reset();
+  $p->session->collect_status(1);
+  $p->session->on(SIG_CHLD => sub { $sig_chld++});
+  $p->session->on(collected => sub { $collected++ });
+  $p->session->on(collected_orphan => sub { $orphan++ });
+  $p->start();
+
+  sleep 1;
+  is($collected, 1, "Event collected apear without doing active wait()");
+  is($orphan, 0, "No orphans where collected");
+
+  $p->wait_stop();
+  is($collected, 1, "No more collect events emitted");
+  is($orphan, 0, "No more orphans events emitted");
+  is($p->exit_status, 0 , '/usr/bin/true exited with 0');
+
+  if (fork() == 0) {
+      exec ('/usr/bin/true');
+  }
+  sleep 1;
+  is($collected, 1, "No more collect events emitted (2)");
+  is($orphan, 1, "Collect one orphan");
+};
+
+subtest emit_from_sigchld_off => sub {
+  my $p = process(execute => '/usr/bin/true');
+  my $collected = 0;
+  my $orphan = 0;
+  my $sig_chld = 0;
+  $p->session->reset();
+  $p->session->collect_status(1);
+  $p->session->emit_from_sigchld(0);
+  $p->session->on(SIG_CHLD => sub { $sig_chld++});
+  $p->session->on(collected => sub { $collected++ });
+  $p->session->on(collected_orphan => sub { $orphan++ });
+  $p->start();
+
+  sleep 1;
+  is($collected, 0, "Event collected didn't appear from sighandler");
+  is($orphan, 0, "No orphans where collected");
+
+  $p->wait_stop();
+  is($collected, 1, "No more collect events emitted");
+  is($orphan, 0, "No more orphans events emitted");
+  is($p->exit_status, 0 , '/usr/bin/true exited with 0');
+
+  exec ('/usr/bin/true') if (fork() == 0);
+  sleep 1;
+  is($collected, 1, "No more collect events emitted (2)");
+  is($orphan, 0, "collect_orphan didn't appear from sighandler");
+
+  $p->session->consume_collected_info();
+  is($collected, 1, "No more collect events emitted (3)");
+  is($orphan, 1, "Collect one orphan");
+};
 
 done_testing();
