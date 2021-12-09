@@ -21,15 +21,15 @@ jobs:
           - '5.26'
           - '5.28'
           - '5.30'
-    name: Perl ${{ matrix.perl }} on ${{ matrix.os }}
+    name: 🐪 Perl ${{ matrix.perl }} on ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
       - uses: shogo82148/actions-setup-perl@v1
+        with:
+          perl-version: ${{ matrix.perl }}
       - name: perl -V
         run: perl -V
       - name: Set up perl
-        # with:
-        #  perl-version: ${{ matrix.perl }}
         run: |
           cpanm --with-develop --installdeps .
           perl Build.PL
@@ -37,7 +37,7 @@ jobs:
       - name: Run tests 
         run: |
           TEST_SHARED=1 TEST_SUBREAPER=1 cover -test -report codecovbash
-      - name: Upload coverage to Codecov
+      - name: Upload coverage to ☂️ Codecov
         uses: codecov/codecov-action@v2
         if: matrix.perl == '5.30'
         with:
