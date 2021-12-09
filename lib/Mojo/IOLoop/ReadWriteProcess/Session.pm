@@ -56,7 +56,8 @@ sub enable {
         while ((my $pid = waitpid(-1, WNOHANG)) > 0) {
           $singleton->add_collected_info($pid, $?, $!);
         }
-        $singleton->consume_collected_info() if ($singleton->emit_from_sigchld());
+        $singleton->consume_collected_info()
+          if ($singleton->emit_from_sigchld());
       }
     });
 }
@@ -84,14 +85,14 @@ sub collect {
 }
 
 sub consume_collected_info {
-    while(my $i = shift @{$singleton->collected_info}) {
-        $singleton->collect(@$i) 
-    }
+  while (my $i = shift @{$singleton->collected_info}) {
+    $singleton->collect(@$i);
+  }
 }
 
 sub add_collected_info {
-    shift;
-    push @{$singleton->collected_info}, [@_];
+  shift;
+  push @{$singleton->collected_info}, [@_];
 }
 
 # Use as $pid => Mojo::IOLoop::ReadWriteProcess
@@ -135,7 +136,11 @@ sub contains {
   $singleton->all->grep(sub { $_->pid eq $pid })->size == 1;
 }
 
-sub reset { @{+shift}{qw(events orphans process_table collected_info handler emit_from_sigchld)} = ({}, {}, {}, [], undef, 1) }
+sub reset {
+  @{+shift}
+    {qw(events orphans process_table collected_info handler emit_from_sigchld)}
+    = ({}, {}, {}, [], undef, 1);
+}
 
 # XXX: This should be replaced by PR_GET_CHILD_SUBREAPER
 sub disable_subreaper {

@@ -9,7 +9,7 @@ sub attempt {
   my $attempts = 0;
   my ($total_attempts, $condition, $cb, $or)
     = ref $_[0] eq 'HASH' ? (@{$_[0]}{qw(attempts condition cb or)}) : @_;
-  $cb //= sub {1};
+  $cb //= sub { 1 };
   until ($condition->() || $attempts >= $total_attempts) {
     warn "Attempt $attempts" if DEBUG;
     $cb->();

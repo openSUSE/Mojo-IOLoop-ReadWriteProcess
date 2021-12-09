@@ -41,7 +41,7 @@ subtest unregister => sub {
 
   session->unregister(1);
   is session->all()->size, 0;
-  is session->resolve(1), undef;
+  is session->resolve(1),  undef;
 
   session->register(1 => $p);
   is session->all()->size, 1;

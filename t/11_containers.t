@@ -233,7 +233,7 @@ subtest container_no_pid_isolation => sub {
 
   $c->stop();
   is $cgroup->processes->size, 0;
-  is $cgroup->process_list, '' or die diag explain $cgroup->process_list;
+  is $cgroup->process_list,    '' or die diag explain $cgroup->process_list;
   $cgroup->remove();
   is scalar(@pids), 5 or diag explain \@pids;
   isnt $virtual_pid, '1',
