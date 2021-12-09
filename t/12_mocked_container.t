@@ -51,8 +51,8 @@ sub mock_test {
   is $cgroups->first->process_list, $p->pid . "\n"
     or die diag explain $cgroups->first->process_list;
 
-  unlink $cgroups->first->_cgroup
-    ->child(Mojo::IOLoop::ReadWriteProcess::CGroup::v1::PROCS_INTERFACE);
+  unlink $cgroups->first->_cgroup->child(
+    Mojo::IOLoop::ReadWriteProcess::CGroup::v1::PROCS_INTERFACE);
   $cgroups->first->remove();
   ok !$cgroups->first->exists();
   is $fired, 1;
@@ -69,7 +69,7 @@ qr/You need either to pass a Mojo::IOLoop::ReadWriteProcess object or a callback
     subreaper => 1,
     group     => "group",
     name      => "test",
-    process =>
+    process   =>
       sub { sleep 5; Devel::Cover::report() if Devel::Cover->can('report'); },
   );
 
@@ -98,8 +98,8 @@ qr/You need either to pass a Mojo::IOLoop::ReadWriteProcess object or a callback
   is $cgroups->first->process_list, $p->pid . "\n"
     or die diag explain $cgroups->first->process_list;
 
-  unlink $cgroups->first->_cgroup
-    ->child(Mojo::IOLoop::ReadWriteProcess::CGroup::v1::PROCS_INTERFACE);
+  unlink $cgroups->first->_cgroup->child(
+    Mojo::IOLoop::ReadWriteProcess::CGroup::v1::PROCS_INTERFACE);
   $cgroups->first->remove();
   ok !$cgroups->first->exists();
   is $fired, 1;
@@ -140,8 +140,8 @@ subtest container_2 => sub {
   is $cgroups->first->process_list, $p->pid . "\n"
     or die diag explain $cgroups->first->process_list;
 
-  unlink $cgroups->first->_cgroup
-    ->child(Mojo::IOLoop::ReadWriteProcess::CGroup::v1::PROCS_INTERFACE);
+  unlink $cgroups->first->_cgroup->child(
+    Mojo::IOLoop::ReadWriteProcess::CGroup::v1::PROCS_INTERFACE);
   $cgroups->first->remove();
   ok !$cgroups->first->exists();
   is $fired, 1;

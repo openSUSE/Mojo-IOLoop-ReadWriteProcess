@@ -56,8 +56,8 @@ has session => sub { Mojo::IOLoop::ReadWriteProcess::Session->singleton };
 
 has _deparse => sub { B::Deparse->new }
   if DEBUG;
-has _deserialize => sub { \&Storable::thaw };
-has _serialize   => sub { \&Storable::freeze };
+has _deserialize             => sub { \&Storable::thaw };
+has _serialize               => sub { \&Storable::freeze };
 has _default_kill_signal     => POSIX::SIGTERM;
 has _default_blocking_signal => POSIX::SIGKILL;
 
@@ -76,7 +76,7 @@ sub to_ioloop {
   my $me = $$;
   $stream->on(
     close => sub {
-      return unless $$ == $me;
+      return                unless $$ == $me;
       $self->_collect->stop unless defined $self->_status;
     });
   return $stream;
@@ -396,10 +396,11 @@ sub exit_status {
 sub restart {
   $_[0]->is_running ? $_[0]->stop->start : $_[0]->start;
 }
+
 sub is_running {
-    my ($self) = shift;
-    $self->session->consume_collected_info;
-    $self->process_id ? kill 0 => $self->process_id : 0;
+  my ($self) = shift;
+  $self->session->consume_collected_info;
+  $self->process_id ? kill 0 => $self->process_id : 0;
 }
 
 sub write_pidfile {
@@ -513,7 +514,7 @@ sub stop {
   my $self = shift;
 
   my $pid = $self->pid;
-  return $self unless defined $pid;
+  return $self               unless defined $pid;
   return $self->_shutdown(1) unless $self->is_running;
   $self->_diag("Stopping $pid") if DEBUG;
 
