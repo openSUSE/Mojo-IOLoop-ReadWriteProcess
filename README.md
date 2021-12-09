@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/mudler/Mojo-IOLoop-ReadWriteProcess.svg?branch=master)](https://travis-ci.org/mudler/Mojo-IOLoop-ReadWriteProcess) [![Coverage Status](http://codecov.io/github/mudler/Mojo-IOLoop-ReadWriteProcess/coverage.svg?branch=master)](https://codecov.io/github/mudler/Mojo-IOLoop-ReadWriteProcess?branch=master)[![linux](https://github.com/mudler/Mojo-IOLoop-ReadWriteProcess/actions/workflows/ci-linux.yaml/badge.svg)](https://github.com/mudler/Mojo-IOLoop-ReadWriteProcess/actions/workflows/ci-linux.yaml)
+[![Coverage Status](http://codecov.io/github/openSUSE/Mojo-IOLoop-ReadWriteProcess/coverage.svg?branch=master)](https://codecov.io/github/openSUSE/Mojo-IOLoop-ReadWriteProcess?branch=master)[![linux](https://github.com/openSUSE/Mojo-IOLoop-ReadWriteProcess/actions/workflows/ci-linux.yaml/badge.svg)](https://github.com/openSUSE/Mojo-IOLoop-ReadWriteProcess/actions/workflows/ci-linux.yaml)
 
 # NAME
 
