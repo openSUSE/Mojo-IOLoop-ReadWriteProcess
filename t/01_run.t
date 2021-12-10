@@ -612,4 +612,18 @@ subtest 'execute exeption handling' => sub {
   is($p->exit_status(), 0, 'Exit status is 0');
 };
 
+subtest 'SIG_CHLD handler in spawned process' => sub {
+  my $simple_rwp = "$FindBin::Bin/data/simple_rwp.pl";
+  my $sigchld_handler = "$FindBin::Bin/data/sigchld_handler.pl";
+
+  # use `perl <script>` here, as Github ci action place the used perl executable
+  # somewhere like /opt/hostedtoolcache/perl/<version>/<arch>/bin/perl so
+  # /usr/bin/perl wouldn't have all needed dependencies
+  is( process(execute => 'perl')->args([$simple_rwp])->start()->wait_stop()->exit_status(), 0, 'simple_rwp.pl exit with 0');
+
+  my $p = process(execute => $sigchld_handler);
+  is( $p->start()->wait_stop()->exit_status(), 0, 'sigchld_handler.pl exit with 0');
+  like( $p->read_all_stdout, qr/SIG_CHLD/, "SIG_CHLD handler was executed");
+};
+
 done_testing;
