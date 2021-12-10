@@ -223,6 +223,7 @@ subtest 'process execute()' => sub {
     max_kill_attempts     => -4,
   );    # ;)
   $p->start();
+  is($p->read_stdout(), "term_trap.sh started\n");
   $p->stop();
   is $p->is_running, 1,     'process is still running';
   is $p->_status,    undef, 'no status yet';
@@ -613,17 +614,23 @@ subtest 'execute exeption handling' => sub {
 };
 
 subtest 'SIG_CHLD handler in spawned process' => sub {
-  my $simple_rwp = "$FindBin::Bin/data/simple_rwp.pl";
+  my $simple_rwp      = "$FindBin::Bin/data/simple_rwp.pl";
   my $sigchld_handler = "$FindBin::Bin/data/sigchld_handler.pl";
 
   # use `perl <script>` here, as Github ci action place the used perl executable
   # somewhere like /opt/hostedtoolcache/perl/<version>/<arch>/bin/perl so
   # /usr/bin/perl wouldn't have all needed dependencies
-  is( process(execute => 'perl')->args([$simple_rwp])->start()->wait_stop()->exit_status(), 0, 'simple_rwp.pl exit with 0');
+  is(
+    process(execute => 'perl')->args([$simple_rwp])->start()->wait_stop()
+      ->exit_status(),
+    0,
+    'simple_rwp.pl exit with 0'
+  );
 
   my $p = process(execute => $sigchld_handler);
-  is( $p->start()->wait_stop()->exit_status(), 0, 'sigchld_handler.pl exit with 0');
-  like( $p->read_all_stdout, qr/SIG_CHLD/, "SIG_CHLD handler was executed");
+  is($p->start()->wait_stop()->exit_status(),
+    0, 'sigchld_handler.pl exit with 0');
+  like($p->read_all_stdout, qr/SIG_CHLD/, "SIG_CHLD handler was executed");
 };
 
 done_testing;
