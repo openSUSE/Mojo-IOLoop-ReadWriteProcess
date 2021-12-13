@@ -5,17 +5,20 @@ use strict;
 use Test::More;
 use POSIX;
 use FindBin;
+use Time::HiRes qw(sleep);
 use Mojo::File qw(tempfile path);
 use lib ("$FindBin::Bin/lib", "../lib", "lib");
 use Mojo::IOLoop::ReadWriteProcess qw(parallel batch process pool);
+
+my $sleepduration = 0;
 
 subtest parallel => sub {
   my $n_proc = 4;
   my $fired;
 
   my $c = parallel(
-    code                  => sub { sleep 2; print "Hello world\n"; },
-    kill_sleeptime        => 1,
+    code           => sub { sleep $sleepduration; print "Hello world\n"; },
+    kill_sleeptime => 1,
     sleeptime_during_kill => 1,
     separate_err          => 1,
     set_pipes             => 1,
@@ -34,7 +37,7 @@ subtest parallel => sub {
   $c->once(stop => sub { $fired++ });
   my $b = $c->restart();
   is $b, $c;
-  sleep 3;
+  sleep $sleepduration * 3;
   $c->wait_stop;
   is $fired, $n_proc * 2;
 };
@@ -47,7 +50,7 @@ subtest batch => sub {
   push(
     @stack,
     process(
-      code         => sub { sleep 2; print "Hello world\n" },
+      code         => sub { sleep $sleepduration; print "Hello world\n" },
       separate_err => 0,
       set_pipes    => 1
     )) for (1 .. $n_proc);
@@ -93,7 +96,7 @@ subtest "Working with pools" => sub {
       code => sub {
         my $self   = shift;
         my $number = shift;
-        sleep 2;
+        sleep $sleepduration;
         return 40 + $number;
       },
       args                  => $number,
@@ -138,7 +141,7 @@ subtest stress_test => sub {
   my $p = pool;
   $p->maximum_processes($n_proc);
   $p->add(
-    code           => sub { sleep 3; exit(20) },
+    code           => sub { sleep $sleepduration * 3; exit(20) },
     internal_pipes => 0,
     set_pipes      => 0
   ) for 1 .. $n_proc;
