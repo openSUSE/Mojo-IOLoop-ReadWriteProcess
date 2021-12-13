@@ -71,8 +71,8 @@ subtest batch => sub {
     set_pipes    => 1
   );
   $c->start();
-  is $c->last->getline, "Hello world 3\n";
   $c->wait_stop();
+  is $c->last->getline, "Hello world 3\n";
 
   my $result;
   $c->add(code => sub { return 40 + 2 }, separate_err => 0, set_pipes => 0);
