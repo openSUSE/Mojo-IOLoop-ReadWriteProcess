@@ -223,6 +223,7 @@ subtest 'process execute()' => sub {
     max_kill_attempts     => -4,
   );    # ;)
   $p->start();
+  is($p->read_stdout(), "term_trap.sh started\n");
   $p->stop();
   is $p->is_running, 1,     'process is still running';
   is $p->_status,    undef, 'no status yet';
