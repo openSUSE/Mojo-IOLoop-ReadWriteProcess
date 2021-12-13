@@ -12,6 +12,9 @@ use Mojo::IOLoop::ReadWriteProcess qw(parallel batch process pool);
 
 my $sleepduration = 0;
 
+my $session = Mojo::IOLoop::ReadWriteProcess::Session->new();
+$session->emit_from_sigchld(0);
+
 subtest parallel => sub {
   my $n_proc = 4;
   my $fired;
@@ -24,6 +27,8 @@ subtest parallel => sub {
     set_pipes             => 1,
     $n_proc
   );
+
+  is ($session, $c->first->session, "Session is the singleton!");
 
   isa_ok($c, "Mojo::IOLoop::ReadWriteProcess::Pool");
   is $c->size(), $n_proc;
