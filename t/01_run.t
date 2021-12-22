@@ -10,7 +10,7 @@ use IO::Select;
 use Mojo::File qw(tempfile path);
 use lib ("$FindBin::Bin/lib", "../lib", "lib");
 use Mojo::IOLoop::ReadWriteProcess qw(process);
-use Mojo::IOLoop::ReadWriteProcess::Test::Utils qw(attempt);
+use Mojo::IOLoop::ReadWriteProcess::Test::Utils qw(attempt check_bin);
 
 subtest process => sub {
 
@@ -129,18 +129,9 @@ subtest 'process is_running()' => sub {
 };
 
 subtest 'process execute()' => sub {
-  my $test_script         = "$FindBin::Bin/data/process_check.sh";
-  my $test_script_sigtrap = "$FindBin::Bin/data/term_trap.sh";
-  plan skip_all =>
-    "You do not seem to have bash, which is required (as for now) for this test"
-    unless -e '/bin/bash';
-  plan skip_all =>
-"You do not seem to have $test_script. The script is required to run the test"
-    unless -e $test_script;
-  plan skip_all =>
-"You do not seem to have $test_script_sigtrap. The script is required to run the test"
-    unless -e $test_script_sigtrap;
-  my $p = Mojo::IOLoop::ReadWriteProcess->new(
+  my $test_script         = check_bin("$FindBin::Bin/data/process_check.sh");
+  my $test_script_sigtrap = check_bin("$FindBin::Bin/data/term_trap.sh");
+  my $p                   = Mojo::IOLoop::ReadWriteProcess->new(
     sleeptime_during_kill => 0.1,
     execute               => $test_script
   )->start();
@@ -302,14 +293,14 @@ subtest 'process execute()' => sub {
   $p->stop();
 };
 
-subtest 'process(execute =>"/usr/bin/true")' => sub {
-  plan skip_all => "Missing '/usr/bin/true'" unless -e '/usr/bin/true';
+subtest 'process(execute => /bin/true)' => sub {
+  check_bin('/bin/true');
 
   is(
-    process(execute => '/usr/bin/true')->quirkiness(1)->start()->wait_stop()
+    process(execute => '/bin/true')->quirkiness(1)->start()->wait_stop()
       ->exit_status(),
     0,
-    'Simple exec of "/usr/bin/true" return 0'
+    'Simple exec of /bin/true return 0'
   );
 };
 
@@ -474,10 +465,7 @@ subtest 'process code()' => sub {
 };
 
 subtest stop_whole_process_group_gracefully => sub {
-  my $test_script = "$FindBin::Bin/data/simple_fork.pl";
-  plan skip_all =>
-    "You do not seem to have $test_script which is required to run the test"
-    unless -e $test_script;
+  my $test_script = check_bin("$FindBin::Bin/data/simple_fork.pl");
 
   # run the "term_trap.pl" script and its sub processes within its own
   # process group
@@ -574,17 +562,20 @@ subtest 'process_args' => sub {
 };
 
 subtest 'process in process' => sub {
+  check_bin('/bin/true');
+  check_bin('/bin/false');
+
   my $p = process(
     sub {
       is(
-        process(execute => '/usr/bin/true')->quirkiness(1)->start()
-          ->wait_stop()->exit_status(),
+        process(execute => '/bin/true')->quirkiness(1)->start()->wait_stop()
+          ->exit_status(),
         0,
         'process(execute) from process(code) -- retval check true'
       );
       is(
-        process(execute => '/usr/bin/false')->quirkiness(1)->start()
-          ->wait_stop()->exit_status(),
+        process(execute => '/bin/false')->quirkiness(1)->start()->wait_stop()
+          ->exit_status(),
         1,
         'process(execute) from process(code) -- retval check false'
       );
@@ -614,8 +605,8 @@ subtest 'execute exeption handling' => sub {
 };
 
 subtest 'SIG_CHLD handler in spawned process' => sub {
-  my $simple_rwp      = "$FindBin::Bin/data/simple_rwp.pl";
-  my $sigchld_handler = "$FindBin::Bin/data/sigchld_handler.pl";
+  my $simple_rwp      = check_bin("$FindBin::Bin/data/simple_rwp.pl");
+  my $sigchld_handler = check_bin("$FindBin::Bin/data/sigchld_handler.pl");
 
   # use `perl <script>` here, as Github ci action place the used perl executable
   # somewhere like /opt/hostedtoolcache/perl/<version>/<arch>/bin/perl so
