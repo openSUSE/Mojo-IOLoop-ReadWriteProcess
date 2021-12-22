@@ -9,16 +9,10 @@ use Mojo::File qw(tempfile path);
 use lib ("$FindBin::Bin/lib", "../lib", "lib");
 use Mojo::IOLoop::ReadWriteProcess qw(process);
 use Mojo::IOLoop::ReadWriteProcess::Session qw(session);
-use Mojo::IOLoop::ReadWriteProcess::Test::Utils qw(attempt);
+use Mojo::IOLoop::ReadWriteProcess::Test::Utils qw(attempt check_bin);
 
 subtest SIG_CHLD => sub {
-  my $test_script = "$FindBin::Bin/data/process_check.sh";
-  plan skip_all =>
-    "You do not seem to have bash, which is required (as for now) for this test"
-    unless -e '/bin/bash';
-  plan skip_all =>
-"You do not seem to have $test_script. The script is required to run the test"
-    unless -e $test_script;
+  my $test_script = check_bin("$FindBin::Bin/data/process_check.sh");
   my $reached;
   my $collect = 0;
 
@@ -98,7 +92,8 @@ subtest collect_status => sub {
 };
 
 subtest collect_from_signal_handler => sub {
-  my $p         = process(execute => '/usr/bin/true');
+  check_bin('/bin/true');
+  my $p         = process(execute => '/bin/true');
   my $collected = 0;
   my $orphan    = 0;
   my $sig_chld  = 0;
@@ -121,9 +116,9 @@ subtest collect_from_signal_handler => sub {
   $p->wait_stop();
   is($collected,      1, "No more collect events emitted");
   is($orphan,         0, "No more orphans events emitted");
-  is($p->exit_status, 0, '/usr/bin/true exited with 0');
+  is($p->exit_status, 0, '/bin/true exited with 0');
 
-  exec('/usr/bin/true') if (fork() == 0);
+  exec('/bin/true') if (fork() == 0);
 
   attempt {attempts => 10, condition => sub { $sig_chld > 1 && $orphan > 0 },};
 
@@ -133,7 +128,8 @@ subtest collect_from_signal_handler => sub {
 };
 
 subtest emit_from_sigchld_off => sub {
-  my $p         = process(execute => '/usr/bin/true');
+  check_bin('/bin/true');
+  my $p         = process(execute => '/bin/true');
   my $collected = 0;
   my $orphan    = 0;
   my $sig_chld  = 0;
@@ -153,9 +149,9 @@ subtest emit_from_sigchld_off => sub {
   $p->wait_stop();
   is($collected,      1, "No more collect events emitted");
   is($orphan,         0, "No more orphans events emitted");
-  is($p->exit_status, 0, '/usr/bin/true exited with 0');
+  is($p->exit_status, 0, '/bin/true exited with 0');
 
-  exec('/usr/bin/true') if (fork() == 0);
+  exec('/bin/true') if (fork() == 0);
   attempt {attempts => 10, condition => sub { $sig_chld > 1 },};
   is($collected, 1, "No more collect events emitted (2)");
   is($orphan,    0, "collect_orphan didn't appear from sighandler");
