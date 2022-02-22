@@ -366,7 +366,7 @@ Disables the SIG_CHLD handler and reset with the previous one.
     session->enable_subreaper;
 
 Mark the current process (not the child) as subreaper.
-This is used typically if you want to mark further childs as subreapers inside other forks.
+This is used typically if you want to mark further children as subreapers inside other forks.
 
     use Mojo::IOLoop::ReadWriteProcess::Session qw(session);
 

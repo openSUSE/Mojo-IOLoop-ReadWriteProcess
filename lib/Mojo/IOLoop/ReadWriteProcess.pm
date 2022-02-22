@@ -903,7 +903,7 @@ Defaults to C<0>, If enabled data returned from forked process will be serialize
 
 =head2 kill_sleeptime
 
-Defaults to C<1>, it's the seconds to wait before attempting SIGKILL when blocking_stop is setted to 1.
+Defaults to C<1>, it's the seconds to wait before attempting SIGKILL when blocking_stop is set to 1.
 
 =head2 separate_err
 
@@ -999,7 +999,7 @@ Inspect the codeblock return.
     my $p = process()->enable_subreaper;
 
 Mark the current process (not the child) as subreaper.
-This is used typically if you want to mark further childs as subreapers inside other forks.
+This is used typically if you want to mark further children as subreapers inside other forks.
 
     my $master_p = process(
       sub {
