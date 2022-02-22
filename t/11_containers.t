@@ -54,7 +54,7 @@ subtest belongs => sub {
 
 };
 
-subtest childs => sub {
+subtest children => sub {
   my $cgroup = cgroupv1(controller => 'pids', name => 'group')->child('test');
   isa_ok $cgroup, 'Mojo::IOLoop::ReadWriteProcess::CGroup::v1';
   is $cgroup->exists(), 1, 'Cgroup exists';
