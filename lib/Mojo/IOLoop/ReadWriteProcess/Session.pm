@@ -175,7 +175,6 @@ sub _get_prctl_syscall {
     : ($machine eq "ppc" || $machine eq "ppc64le") ? 171
     : $machine eq "ia64"                           ? 1170
     : $machine eq "alpha"                          ? 348
-    : ($machine eq "arm" || $machine eq "armv7l")  ? 0x900000 + 172
     : $machine eq "avr32"                          ? 148
     : $machine eq "mips"                           ? 4000 + 192
     : $machine eq "mips64"                         ? 5000 + 153
