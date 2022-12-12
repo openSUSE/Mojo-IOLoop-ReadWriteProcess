@@ -10,7 +10,7 @@ use lib ("$FindBin::Bin/lib", "../lib", "lib");
 
 BEGIN { $ENV{MOJO_CGROUP_FS} = tempdir() }
 
-use Mojo::IOLoop::ReadWriteProcess qw(process);
+use Mojo::IOLoop::ReadWriteProcess              qw(process);
 use Mojo::IOLoop::ReadWriteProcess::Test::Utils qw(attempt);
 use Mojo::IOLoop;
 use Mojo::IOLoop::ReadWriteProcess::CGroup qw(cgroupv2);

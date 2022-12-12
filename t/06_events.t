@@ -7,8 +7,8 @@ use POSIX;
 use FindBin;
 use Mojo::File qw(tempfile path);
 use lib ("$FindBin::Bin/lib", "../lib", "lib");
-use Mojo::IOLoop::ReadWriteProcess qw(process);
-use Mojo::IOLoop::ReadWriteProcess::Session qw(session);
+use Mojo::IOLoop::ReadWriteProcess              qw(process);
+use Mojo::IOLoop::ReadWriteProcess::Session     qw(session);
 use Mojo::IOLoop::ReadWriteProcess::Test::Utils qw(attempt check_bin);
 
 subtest SIG_CHLD => sub {
