@@ -297,13 +297,16 @@ sub _fork {
       $stdin = $input_pipe->reader() if $input_pipe;
       open STDERR, ">&", $stderr
         or !!$internal_err->write($!)
-        or $self->_diag($!);
+        or $self->_diag($!)
+        if $stderr;
       open STDOUT, ">&", $stdout
         or !!$internal_err->write($!)
-        or $self->_diag($!);
+        or $self->_diag($!)
+        if $stdout;
       open STDIN, ">&", $stdin
         or !!$internal_err->write($!)
-        or $self->_diag($!);
+        or $self->_diag($!)
+        if $stdin;
 
       $self->read_stream($stdin);
       $self->error_stream($stderr);
