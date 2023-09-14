@@ -12,7 +12,7 @@ jobs:
     container:
       image: perl:5.32
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: perl -V
         run: perl -V
       - name: Install dependencies
@@ -22,5 +22,6 @@ jobs:
       - name: Run perltidy
         shell: bash
         run: |
+          git config --global --add safe.directory $PWD
           shopt -s extglob globstar nullglob
           perltidy --pro=.../.perltidyrc -b -bext='/' **/*.p[lm] **/*.t && git diff --exit-code
