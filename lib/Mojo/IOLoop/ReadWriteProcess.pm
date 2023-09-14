@@ -412,7 +412,7 @@ sub write_pidfile {
   return unless $self->pid;
   return unless $self->pidfile;
 
-  path($self->pidfile)->spurt($self->pid);
+  path($self->pidfile)->spew($self->pid);
   return $self;
 }
 
