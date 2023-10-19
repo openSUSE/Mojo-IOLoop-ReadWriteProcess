@@ -14,15 +14,12 @@ use Mojo::IOLoop::ReadWriteProcess::CGroup      qw(cgroupv2 cgroupv1);
 use Mojo::IOLoop::ReadWriteProcess::Container   qw(container);
 
 eval {
-  die "OS Unsupported: " . $^O if ($^O !~ m#(?i)(Linux)#);
   my $try_cgroup
     = cgroupv1(controller => 'pids', name => 'group')->child('test')->create;
   die unless $try_cgroup->exists();
 };
 
-plan skip_all =>
-  "This test works only if you have cgroups permissions or a supported OS"
-  if $@;
+plan skip_all => "This test works only if you have cgroups permissions" if $@;
 
 subtest belongs => sub {
   cgroupv1(controller => 'pids', name => 'group')->create;
