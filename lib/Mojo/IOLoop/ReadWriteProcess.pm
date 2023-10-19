@@ -667,6 +667,10 @@ Mojo::IOLoop::ReadWriteProcess - Execute external programs or internal code bloc
     $process->stop();
     my @errors = $process->error;
 
+    # To help when debugging Mojo::Collections
+    use Mojo::Util qw(dumper);
+    my $errors = dumper $process->error->to_array;
+
     # Get process return value
     $process = process( sub { return "256"; } )->start()->wait_stop;
     # We need to stop it to retrieve the exit status
