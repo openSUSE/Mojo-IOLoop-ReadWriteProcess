@@ -605,6 +605,7 @@ subtest 'execute exeption handling' => sub {
 };
 
 subtest 'SIG_CHLD handler in spawned process' => sub {
+  check_bin('/bin/true');
   my $simple_rwp      = check_bin("$FindBin::Bin/data/simple_rwp.pl");
   my $sigchld_handler = check_bin("$FindBin::Bin/data/sigchld_handler.pl");
 
