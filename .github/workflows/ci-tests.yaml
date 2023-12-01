@@ -1,4 +1,4 @@
-name: linux
+name: Unit and integration tests
 on:
   push:
     branches:
@@ -11,16 +11,18 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-      os: [ubuntu-latest]
+        os: [ubuntu-latest]
         perl:
-          - '5.16'
-          - '5.20'
-          - '5.26'
-          - '5.30'
-          - latest
+            - '5.16'
+            - '5.20'
+            - '5.26'
+            - '5.30'
+            - latest
         include:
-          - { os: macos-latest, perl: '5.26' }
-          - { os: macos-latest, perl: latest }
+          - os: macos-latest
+            perl: '5.26'
+          - os: macos-latest
+            perl: latest
     name: 🐪 Perl ${{ matrix.perl }} on ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
