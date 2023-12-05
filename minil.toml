@@ -7,3 +7,13 @@ build_class = "builder::custom"
 
 [Metadata.resources]
 repository = "https://github.com/openSUSE/Mojo-IOLoop-ReadWriteProcess"
+
+[unsupported]
+os = [
+    "MSWin32",
+    "cygwin",
+]
+
+[tap_harness_args]
+merge = 1
+formatter = "TAP::Formatter::GitHubActions"

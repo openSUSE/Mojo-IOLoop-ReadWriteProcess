@@ -9,10 +9,14 @@ on configure => sub {
 on test => sub {
     requires 'Test::More';
     requires 'Test::Exception';
-};
-on develop => sub {
-    requires 'Devel::Cover::Report::Codecovbash';
-    requires 'Devel::Cover';
-    requires 'Test::Pod::Coverage';
+    requires 'TAP::Formatter::Color';
     requires 'Test::Pod';
-}
+};
+
+feature 'ci' => sub {
+    requires 'Minilla';
+    requires 'Devel::Cover';
+    requires 'Devel::Cover::Report::Codecovbash';
+    requires 'TAP::Formatter::GitHubActions';
+    requires 'Test::Pod::Coverage';
+};
