@@ -14,11 +14,12 @@ use builder::custom;
 use File::Basename;
 use File::Spec;
 
-my $tap_harness_args = (
+my $tap_harness_args = {
     "verbosity" => 1,
     "merge" => 1,
-    "formatter" => "TAP::Formatter::GitHubActions",
-  );
+    "formatter_class" => "TAP::Formatter::GitHubActions",
+
+  };
 
 my %args = (
     license              => 'perl_5',
@@ -56,7 +57,7 @@ my %args = (
 
     test_files           => ((-d '.git' || $ENV{RELEASE_TESTING}) && -d 'xt') ? 't/ xt/' : 't/',
     recursive_test_files => 1,
-    test_harness_args    => $tap_harness_args,
+    tap_harness_args    => $tap_harness_args,
 );
 
 if (-d 'share') {
