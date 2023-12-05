@@ -34,14 +34,14 @@ jobs:
       - name: Set up perl
         run: |
           cpanm IO::Scalar # skip missing dependency on TAP::Harness::GithubActions
-          cpanm --with-feature=ci --installdeps .
+          cpanm --with-feature=ci --installdeps --notest .
           perl Build.PL
           ./Build build
       - name: Run tests 
         run: |
           TEST_SHARED=1 TEST_SUBREAPER=1 cover -test -report codecovbash
       - name: Upload coverage to ☂️ Codecov
-        uses: codecov/codecov-action@v2
+        uses: codecov/codecov-action@v3
         if: matrix.perl == '5.30'
         with:
           file: cover_db/codecov.json
