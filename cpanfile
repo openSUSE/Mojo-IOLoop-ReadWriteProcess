@@ -1,7 +1,5 @@
-requires 'IO::Scalar';
 requires 'Mojolicious', '>= 9.34';
 requires 'IPC::SharedMem';
-requires 'Module::Build';
 
 on configure => sub {
     requires 'Module::Build';

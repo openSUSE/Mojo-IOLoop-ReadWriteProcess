@@ -33,7 +33,6 @@ jobs:
         run: perl -V
       - name: Set up perl
         run: |
-          cpanm IO::Scalar # skip missing dependency on TAP::Harness::GithubActions
           cpanm --with-feature=ci --installdeps --notest .
           perl Build.PL
           ./Build build
