@@ -15,9 +15,9 @@ use File::Basename;
 use File::Spec;
 
 my $tap_harness_args = (
-    verbosity => 1,
-    merge => 1,
-    formatter => "TAP::Formatter::GitHubActions",
+    "verbosity" => 1,
+    "merge" => 1,
+    "formatter" => "TAP::Formatter::GitHubActions",
   );
 
 my %args = (
