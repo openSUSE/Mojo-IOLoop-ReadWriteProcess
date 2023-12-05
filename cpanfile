@@ -1,6 +1,7 @@
 requires 'IO::Scalar';
 requires 'Mojolicious', '>= 9.34';
 requires 'IPC::SharedMem';
+requires 'Module::Build';
 
 on configure => sub {
     requires 'Module::Build';
@@ -15,6 +16,7 @@ on test => sub {
 };
 
 feature 'ci' => sub {
+    requires 'Minilla';
     requires 'Devel::Cover';
     requires 'Devel::Cover::Report::Codecovbash';
     requires 'TAP::Formatter::GitHubActions';
