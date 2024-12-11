@@ -627,11 +627,11 @@ sub _shutdown {
 *channel_read_all = \&read_all_channel;
 
 # Aliases - IO::Handle
-*stdin_handle        = \&write_stream;
-*stdout_handle       = \&read_stream;
-*stderr_handle       = \&error_stream;
-*channe_write_handle = \&channel_in;
-*channel_read_handle = \&channel_out;
+*stdin_handle         = \&write_stream;
+*stdout_handle        = \&read_stream;
+*stderr_handle        = \&error_stream;
+*channel_write_handle = \&channel_in;
+*channel_read_handle  = \&channel_out;
 
 1;
 
