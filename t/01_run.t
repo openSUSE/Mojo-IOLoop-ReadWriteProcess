@@ -297,7 +297,10 @@ subtest 'process(execute => /bin/true)' => sub {
   check_bin('/bin/true');
 
   is(
-    process(execute => '/bin/true')->quirkiness(1)->start()->wait_stop()
+    process(execute => '/bin/true')
+      ->quirkiness(1)
+      ->start()
+      ->wait_stop()
       ->exit_status(),
     0,
     'Simple exec of /bin/true return 0'
@@ -556,7 +559,9 @@ subtest 'process_args' => sub {
     ->start->wait_stop();
   is($p->read_all_stdout(), "0$/1$/2$/3$/", '1) Args given as arrayref.');
 
-  $p = Mojo::IOLoop::ReadWriteProcess->new($code)->args([(0 .. 3)])
+  $p
+    = Mojo::IOLoop::ReadWriteProcess->new($code)
+    ->args([(0 .. 3)])
     ->start->wait_stop();
   is($p->read_all_stdout(), "0$/1$/2$/3$/", '2) Args given as arrayref.');
 };
@@ -568,19 +573,27 @@ subtest 'process in process' => sub {
   my $p = process(
     sub {
       is(
-        process(execute => '/bin/true')->quirkiness(1)->start()->wait_stop()
+        process(execute => '/bin/true')
+          ->quirkiness(1)
+          ->start()
+          ->wait_stop()
           ->exit_status(),
         0,
         'process(execute) from process(code) -- retval check true'
       );
       is(
-        process(execute => '/bin/false')->quirkiness(1)->start()->wait_stop()
+        process(execute => '/bin/false')
+          ->quirkiness(1)
+          ->start()
+          ->wait_stop()
           ->exit_status(),
         1,
         'process(execute) from process(code) -- retval check false'
       );
       is(
-        process(sub { print 'sub-sub-process' })->start()->wait_stop()
+        process(sub { print 'sub-sub-process' })
+          ->start()
+          ->wait_stop()
           ->read_all_stdout,
         'sub-sub-process',
         'process(code) works from process(code)'
@@ -613,7 +626,10 @@ subtest 'SIG_CHLD handler in spawned process' => sub {
   # somewhere like /opt/hostedtoolcache/perl/<version>/<arch>/bin/perl so
   # /usr/bin/perl wouldn't have all needed dependencies
   is(
-    process(execute => 'perl')->args([$simple_rwp])->start()->wait_stop()
+    process(execute => 'perl')
+      ->args([$simple_rwp])
+      ->start()
+      ->wait_stop()
       ->exit_status(),
     0,
     'simple_rwp.pl exit with 0'
