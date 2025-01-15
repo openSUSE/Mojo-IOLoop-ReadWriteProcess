@@ -507,17 +507,33 @@ sub start {
 sub send_signal {
   my $self   = shift;
   my $signal = shift // $self->_default_kill_signal;
-  my $pid    = shift // $self->process_id;
+  my @pids   = @_;
+  @pids = ($self->process_id) unless @pids;
   return unless $self->kill_whole_group || $self->is_running;
-  $self->_diag("Sending signal '$signal' to $pid") if DEBUG;
-  kill $signal => $pid;
+  $self->_diag("Sending signal '$signal' to @pids") if DEBUG;
+  kill $signal => @pids;
   return $self;
+}
+
+sub _waitpids {
+  my ($self, $flags, @pids) = @_;
+  my $status;
+  my $stopped = 0;
+  for my $pid (@pids) {
+    my $ret = waitpid($pid, $flags);
+    if ($ret == $pid || $ret == -1) {
+      $status //= $?;
+      $stopped += 1;
+    }
+  }
+  $self->_status($status);
+  return $stopped;
 }
 
 sub stop {
   my $self = shift;
 
-  my $pid = $self->pid;
+  my @pids = ($self->pid);
   return $self               unless defined $pid;
   return $self->_shutdown(1) unless $self->is_running;
 
@@ -527,11 +543,11 @@ sub stop {
   my $sleep_time   = $self->sleeptime_during_kill;
   my $max_attempts = $self->max_kill_attempts;
   my $signal       = $self->_default_kill_signal;
-  $pid = -$pid if $self->kill_whole_group;
-  $self->_diag("Stopping $pid") if DEBUG;
+  push @pids, -$pid if $self->kill_whole_group;
+  $self->_diag("Stopping @pids") if DEBUG;
 
-  until ((defined $ret && ($ret == $pid || $ret == -1))
-      || ($attempt > $max_attempts && $timeout <= 0))
+  my $stopped = 0;
+  until (($stopped == scalar(@pids)) || ($attempt > $max_attempts && $timeout <= 0))
   {
     my $send_signal = $attempt == 1 || $timeout <= 0;
     $self->_diag(
@@ -541,11 +557,10 @@ sub stop {
       sub {
         local $?;
         if ($send_signal) {
-          $self->send_signal($signal, $pid);
+          $self->send_signal($signal, @pids);
           ++$attempt;
         }
-        $ret = waitpid($pid, WNOHANG);
-        $self->_status($?) if $ret == $pid || $ret == -1;
+        $stopped = $self->_waitpids(WNOHANG, @pids);
       });
     if ($sleep_time) {
       sleep $sleep_time;
@@ -557,13 +572,12 @@ sub stop {
   sleep $self->kill_sleeptime if $self->kill_sleeptime;
 
   if ($self->blocking_stop) {
-    $self->_diag("Could not kill process id: $pid, blocking attempt") if DEBUG;
+    $self->_diag("Could not kill process id: @pids, blocking attempt") if DEBUG;
     $self->emit('process_stuck');
 
     ### XXX: avoid to protect on blocking.
-    $self->send_signal($self->_default_blocking_signal, $pid);
-    $ret = waitpid($pid, 0);
-    $self->_status($?) if $ret == $pid || $ret == -1;
+    $self->send_signal($self->_default_blocking_signal, @pids);
+    $self->_waitpids(0, @pids);
     return $self->_shutdown;
   }
   else {
