@@ -36,6 +36,11 @@ jobs:
           cpanm --with-feature=ci --installdeps --notest .
           perl Build.PL
           ./Build build
+      - name: Pre-check test scripts
+        run: |
+          t/data/simple_rwp.pl && echo "simple_rwp: $?"
+          t/data/simple_fork.pl && echo "simple_fork: $?"
+          t/data/sigchld_handler.pl && echo "sigchld_handler: $?"
       - name: Run tests 
         run: |
           TEST_SHARED=1 TEST_SUBREAPER=1 cover -test -report codecovbash
