@@ -404,7 +404,7 @@ sub is_running {
   my ($self) = shift;
   $self->session->consume_collected_info;
   return 0 unless my $pid = $self->process_id;
-  kill(0, ($self->kill_whole_group ? -$pid : $pid));
+  kill(0, ($self->kill_whole_group ? (-$pid, $pid) : ($pid)));
 }
 
 sub write_pidfile {
