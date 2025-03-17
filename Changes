@@ -2,6 +2,26 @@
 Revision history for Perl extension Mojo-IOLoop-ReadWriteProcess
 
 {{$NEXT}}
+0.35 2025-03-17 12:20:20Z
+ -  Fix sporadic failures in `t/01_run.t`
+ -  Debug test for stopping whole process group
+ -  Fix race condition in `is_running` when `kill_whole_group` is set
+ -  Apply tidy 20250105
+ -  Fix handling process groups when initial process is not running anymore
+ -  Use the correct formatter
+ -  Fix errors on Build.PL
+ -  Remove workaround for missing dependency on TAP::Harness::GithubActions
+ -  Update to codecov@v3
+ -  Add Minilla to the ci target
+ -  Update minil.toml to have the harness arguments enabled
+ -  Use github formatter for prove
+ -  Fix tests and rename workflow
+ -  Use reduced test matrix on MacOSX
+ -  Test on OSX and Linux with a reduced perl matrix
+ -  t: Add another check for /bin/true
+ -  Fix tidy also for OSX
+ -  Mention syntactic sugar to help when debugging
+ -  Enable support for MacOSX (darwin)
 
 0.34 2023-09-18T15:47:18Z
  - Adapt to deprecation of spurt in upstream Mojolicious
