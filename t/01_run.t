@@ -467,6 +467,10 @@ subtest 'process code()' => sub {
   is $p->read_all, '', 'stdout is empty';
 };
 
+sub _number_of_process_in_group {
+  scalar(split "\n", qx{pgrep -g @_} or die "Unable to run pgrep: $!");
+}
+
 subtest stop_whole_process_group_gracefully => sub {
   my $test_script = check_bin("$FindBin::Bin/data/simple_fork.pl");
 
@@ -497,7 +501,13 @@ subtest stop_whole_process_group_gracefully => sub {
   #       stop would also stop the test itself.
   my $test_gpid       = getpgrp(0);
   my $sub_process_pid = $sub_process->pid;
-  sleep 0.1 while $test_gpid == getpgrp($sub_process_pid);
+  my $sub_process_gid;
+  note 'waiting until process group has been created';
+  sleep 0.01 while $test_gpid == ($sub_process_gid = getpgrp($sub_process_pid));
+  note "test pid: $$, gpid: $test_gpid";
+  note "sub process pid: $sub_process_pid, gpid: $sub_process_gid";
+  note 'waiting until all sub processes have been forked';
+  sleep 0.01 until _number_of_process_in_group($sub_process_gid) == 3;
 
   $sub_process->stop();
   is $sub_process->is_running, 0, 'process is shut down via kill_whole_group';
