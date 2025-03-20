@@ -482,14 +482,18 @@ subtest stop_whole_process_group_gracefully => sub {
   #          to check whether the sub processes would actually be granted
   #          this number of seconds before getting killed. This is not set by
   #          default to avoid slowing down the CI.
-  my $sub_process = Mojo::IOLoop::ReadWriteProcess->new(
-    kill_sleeptime              => 0.01,
-    sleeptime_during_kill       => 0.01,
+  my $interval       = $ENV{MOJO_PROCESS_STOP_PGROUP_SLEEP_INTERVAL} // 0.01;
+  my $timeout        = $ENV{MOJO_PROCESS_STOP_PGROUP_TIMEOUT}        // 15;
+  my $kill_sleeptime = $ENV{TOTAL_SLEEPTIME_DURING_KILL} // ($interval * 5.0);
+  my $patience       = $timeout / $interval;
+  my $sub_process    = Mojo::IOLoop::ReadWriteProcess->new(
+    kill_sleeptime              => $interval,
+    sleeptime_during_kill       => $interval,
     max_kill_attempts           => 1,
     separate_err                => 0,
     blocking_stop               => 1,
     kill_whole_group            => 1,
-    total_sleeptime_during_kill => $ENV{TOTAL_SLEEPTIME_DURING_KILL} // 0.05,
+    total_sleeptime_during_kill => $kill_sleeptime,
     code                        => sub {
       $SIG{TERM} = 'IGNORE';
       setpgrp(0, 0);
@@ -503,13 +507,18 @@ subtest stop_whole_process_group_gracefully => sub {
   my $sub_process_pid = $sub_process->pid;
   my $sub_process_gid;
   note 'waiting until process group has been created';
-  sleep 0.01 while $test_gpid == ($sub_process_gid = getpgrp($sub_process_pid));
+  sleep $interval
+    while $test_gpid == ($sub_process_gid = getpgrp($sub_process_pid))
+    && --$patience > 0;
   note "test pid: $$, gpid: $test_gpid";
   note "sub process pid: $sub_process_pid, gpid: $sub_process_gid";
   note 'waiting until all sub processes have been forked';
-  sleep 0.01 until _number_of_process_in_group($sub_process_gid) == 3;
+  sleep $interval
+    while _number_of_process_in_group($sub_process_gid) != 3 && --$patience > 0;
 
   $sub_process->stop();
+  note 'waiting until the process group is no longer running';
+  sleep $interval while $sub_process->is_running && --$patience > 0;
   is $sub_process->is_running, 0, 'process is shut down via kill_whole_group';
 };
 
