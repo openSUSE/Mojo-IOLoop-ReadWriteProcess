@@ -44,8 +44,8 @@ subtest 'process basic functions' => sub {
     "Process with no code nor execute command, will fail";
 
   $p = Mojo::IOLoop::ReadWriteProcess->new(
-    kill_sleeptime        => 0.01,
-    sleeptime_during_kill => 0.01
+    kill_sleeptime        => $interval,
+    sleeptime_during_kill => $interval
   );
   eval { $p->_fork(); };
   ok $@, "Error expected";
@@ -56,8 +56,8 @@ subtest 'process basic functions' => sub {
     pipe(PARENT, CHILD);
 
     my $p = Mojo::IOLoop::ReadWriteProcess->new(
-      kill_sleeptime        => 0.01,
-      sleeptime_during_kill => 0.01,
+      kill_sleeptime        => $interval,
+      sleeptime_during_kill => $interval,
       code                  => sub {
         close(PARENT);
         open STDERR, ">&", \*CHILD or die $!;
@@ -133,7 +133,7 @@ subtest 'process execute()' => sub {
   my $test_script         = check_bin("$FindBin::Bin/data/process_check.sh");
   my $test_script_sigtrap = check_bin("$FindBin::Bin/data/term_trap.sh");
   my $p                   = Mojo::IOLoop::ReadWriteProcess->new(
-    sleeptime_during_kill => 0.1,
+    sleeptime_during_kill => $interval,
     execute               => $test_script
   )->start();
   is $p->getline,     "TEST normal print\n", 'Get right output from stdout';
@@ -146,8 +146,8 @@ subtest 'process execute()' => sub {
   is $p->is_running, 0, 'process is not running anymore';
 
   $p = Mojo::IOLoop::ReadWriteProcess->new(
-    kill_sleeptime        => 0.01,
-    sleeptime_during_kill => 0.01,
+    kill_sleeptime        => $interval,
+    sleeptime_during_kill => $interval,
     execute               => $test_script,
     args                  => [
       qw(FOO
@@ -165,7 +165,7 @@ subtest 'process execute()' => sub {
   is $p->exit_status, 100,         'able to retrieve function return';
 
   $p = Mojo::IOLoop::ReadWriteProcess->new(
-    sleeptime_during_kill => 0.1,
+    sleeptime_during_kill => $interval,
     execute               => $test_script
   )->args([qw(FOO BAZ)])->start();
   is $p->stdout,      "TEST normal print\n", 'Get right output from stdout';
@@ -181,8 +181,8 @@ subtest 'process execute()' => sub {
 
   my $patience = $timeout / $interval;
   $p = Mojo::IOLoop::ReadWriteProcess->new(
-    kill_sleeptime        => 0.01,
-    sleeptime_during_kill => 0.01,
+    kill_sleeptime        => $interval,
+    sleeptime_during_kill => $interval,
     separate_err          => 0,
     execute               => $test_script
   );
@@ -196,8 +196,8 @@ subtest 'process execute()' => sub {
     'Still able to get stdout output, always in getline()';
 
   my $p2 = Mojo::IOLoop::ReadWriteProcess->new(
-    kill_sleeptime        => 0.01,
-    sleeptime_during_kill => 0.01,
+    kill_sleeptime        => $interval,
+    sleeptime_during_kill => $interval,
     separate_err          => 0,
     execute               => $test_script,
     set_pipes             => 0
@@ -209,8 +209,8 @@ subtest 'process execute()' => sub {
     'take exit status even with set_pipes = 0 (we killed it)';
 
   $p = Mojo::IOLoop::ReadWriteProcess->new(
-    kill_sleeptime        => 0.01,
-    sleeptime_during_kill => 0.01,
+    kill_sleeptime        => $interval,
+    sleeptime_during_kill => $interval,
     verbose               => 1,
     separate_err          => 0,
     execute               => $test_script_sigtrap,
@@ -237,8 +237,8 @@ subtest 'process execute()' => sub {
 
 
   $p = Mojo::IOLoop::ReadWriteProcess->new(
-    kill_sleeptime        => 0.01,
-    sleeptime_during_kill => 0.01,
+    kill_sleeptime        => $interval,
+    sleeptime_during_kill => $interval,
     verbose               => 1,
     separate_err          => 0,
     blocking_stop         => 1,
@@ -251,8 +251,8 @@ subtest 'process execute()' => sub {
 
   my $pidfile = tempfile;
   $p = Mojo::IOLoop::ReadWriteProcess->new(
-    kill_sleeptime        => 0.01,
-    sleeptime_during_kill => 0.01,
+    kill_sleeptime        => $interval,
+    sleeptime_during_kill => $interval,
     verbose               => 1,
     separate_err          => 0,
     blocking_stop         => 1,
@@ -268,8 +268,8 @@ subtest 'process execute()' => sub {
 
   $pidfile = tempfile;
   $p       = Mojo::IOLoop::ReadWriteProcess->new(
-    kill_sleeptime        => 0.01,
-    sleeptime_during_kill => 0.01,
+    kill_sleeptime        => $interval,
+    sleeptime_during_kill => $interval,
     verbose               => 1,
     separate_err          => 0,
     blocking_stop         => 1,
@@ -284,8 +284,8 @@ subtest 'process execute()' => sub {
   is -e $pidfile, undef, 'Pidfile got removed after stop()';
 
   $p = Mojo::IOLoop::ReadWriteProcess->new(
-    kill_sleeptime        => 0.01,
-    sleeptime_during_kill => 0.01,
+    kill_sleeptime        => $interval,
+    sleeptime_during_kill => $interval,
     verbose               => 1,
     separate_err          => 0,
     blocking_stop         => 1,
@@ -312,8 +312,8 @@ subtest 'process(execute => /bin/true)' => sub {
 
 subtest 'process code()' => sub {
   my $p = Mojo::IOLoop::ReadWriteProcess->new(
-    kill_sleeptime        => 0.01,
-    sleeptime_during_kill => 0.01,
+    kill_sleeptime        => $interval,
+    sleeptime_during_kill => $interval,
     code                  => sub {
       my ($self)        = shift;
       my $parent_output = $self->channel_out;
@@ -367,8 +367,8 @@ subtest 'process code()' => sub {
   is $p->is_running, 0, 'process is not running';
 
   $p = Mojo::IOLoop::ReadWriteProcess->new(
-    kill_sleeptime        => 0.01,
-    sleeptime_during_kill => 0.01,
+    kill_sleeptime        => $interval,
+    sleeptime_during_kill => $interval,
     separate_err          => 0,
     code                  => sub {
       my ($self)        = shift;
@@ -385,8 +385,8 @@ subtest 'process code()' => sub {
   is $p->is_running,    0,   'process is not running';
   is $p->return_status, 256, 'right return code';
 
-  $p = Mojo::IOLoop::ReadWriteProcess->new(sub { die "Fatal error"; },
-    sleeptime_during_kill => 0.1);
+  $p = Mojo::IOLoop::ReadWriteProcess->new(sub { die "Fatal error" },
+    sleeptime_during_kill => $interval);
   my $event_fired = 0;
   $p->on(
     process_error => sub {
@@ -404,8 +404,8 @@ subtest 'process code()' => sub {
 
   $p = Mojo::IOLoop::ReadWriteProcess->new(
     sub { return 42 },
-    kill_sleeptime        => 0.01,
-    sleeptime_during_kill => 0.01,
+    kill_sleeptime        => $interval,
+    sleeptime_during_kill => $interval,
     internal_pipes        => 0
   );
   $p->start();
@@ -416,8 +416,8 @@ subtest 'process code()' => sub {
 
   $p = Mojo::IOLoop::ReadWriteProcess->new(
     sub { die "Bah" },
-    kill_sleeptime        => 0.01,
-    sleeptime_during_kill => 0.01,
+    kill_sleeptime        => $interval,
+    sleeptime_during_kill => $interval,
     internal_pipes        => 0
   );
   $p->start();
@@ -428,8 +428,8 @@ subtest 'process code()' => sub {
 # XXX: flaky test temporarly skip it. is !!$p->exit_status, 1, 'Exit status is there';
 
   $p = Mojo::IOLoop::ReadWriteProcess->new(
-    kill_sleeptime        => 0.01,
-    sleeptime_during_kill => 0.01,
+    kill_sleeptime        => $interval,
+    sleeptime_during_kill => $interval,
     separate_err          => 0,
     set_pipes             => 0,
     code                  => sub {
@@ -443,8 +443,8 @@ subtest 'process code()' => sub {
   is $p->return_status, 256, "grab exit_status even if no pipes are set";
 
   $p = Mojo::IOLoop::ReadWriteProcess->new(
-    kill_sleeptime        => 0.01,
-    sleeptime_during_kill => 0.01,
+    kill_sleeptime        => $interval,
+    sleeptime_during_kill => $interval,
     separate_err          => 0,
     set_pipes             => 1,
     code                  => sub {
@@ -454,8 +454,8 @@ subtest 'process code()' => sub {
   is $p->exit_status, 100, "grab exit_status even if no pipes are set";
 
   $p = Mojo::IOLoop::ReadWriteProcess->new(
-    kill_sleeptime        => 0.01,
-    sleeptime_during_kill => 0.01,
+    kill_sleeptime        => $interval,
+    sleeptime_during_kill => $interval,
     separate_err          => 0,
     code                  => sub {
       print STDERR "TEST error print\n" for (1 .. 6);
@@ -534,8 +534,8 @@ subtest process_debug => sub {
     eval "no warnings; require Mojo::IOLoop::ReadWriteProcess";    ## no critic
     Mojo::IOLoop::ReadWriteProcess->new(
       code                  => sub { 1; },
-      kill_sleeptime        => 0.01,
-      sleeptime_during_kill => 0.01
+      kill_sleeptime        => $interval,
+      sleeptime_during_kill => $interval
     )->start()->stop();
   }
 
@@ -551,8 +551,8 @@ process';
     eval "no warnings; require Mojo::IOLoop::ReadWriteProcess";    ## no critic
     Mojo::IOLoop::ReadWriteProcess->new(
       execute               => "$FindBin::Bin/data/process_check.sh",
-      kill_sleeptime        => 0.01,
-      sleeptime_during_kill => 0.01,
+      kill_sleeptime        => $interval,
+      sleeptime_during_kill => $interval,
     )->start()->stop();
   }
 
