@@ -12,6 +12,10 @@ use lib ("$FindBin::Bin/lib", "../lib", "lib");
 use Mojo::IOLoop::ReadWriteProcess              qw(process);
 use Mojo::IOLoop::ReadWriteProcess::Test::Utils qw(attempt check_bin);
 
+my $interval       = $ENV{MOJO_PROCESS_TEST_SLEEP_INTERVAL} // 0.01;
+my $timeout        = $ENV{MOJO_PROCESS_SUBTEST_TIMEOUT}     // 15;
+my $kill_sleeptime = $ENV{TOTAL_SLEEPTIME_DURING_KILL} // ($interval * 5.0);
+
 subtest process => sub {
 
   my $c = Mojo::IOLoop::ReadWriteProcess->new();
@@ -68,13 +72,13 @@ subtest 'process basic functions' => sub {
 };
 
 subtest 'process is_running()' => sub {
-
   my @output;
   pipe(PARENT, CHILD);
 
-  my $p = Mojo::IOLoop::ReadWriteProcess->new(
-    kill_sleeptime        => 0.01,
-    sleeptime_during_kill => 0.01,
+  my $patience = $timeout / $interval;
+  my $p        = Mojo::IOLoop::ReadWriteProcess->new(
+    kill_sleeptime        => $interval,
+    sleeptime_during_kill => $interval,
     code                  => sub {
       close(PARENT);
       open STDERR, ">&", \*CHILD or die $!;
@@ -85,6 +89,7 @@ subtest 'process is_running()' => sub {
   close(CHILD);
   @output = scalar <PARENT>;
   $p->stop();
+  sleep $interval while $p->is_running && --$patience > 0;
 
   close(PARENT);
   chomp @output;
@@ -101,10 +106,12 @@ subtest 'process is_running()' => sub {
       1 while 1;
     });
   $p->restart()->restart()->restart();
+  sleep $interval until $p->is_running || --$patience <= 0;
   is $p->is_running, 1, "Process now is running";
   close(CHILD);
   @output = scalar <PARENT>;
   $p->stop();
+  sleep $interval while $p->is_running && --$patience > 0;
   chomp @output;
   is $output[0],     "FOOBAZFTW", 'right output from process';
   is $p->is_running, 0,           "Process now is not running";
@@ -113,13 +120,7 @@ subtest 'process is_running()' => sub {
   pipe(PARENT, CHILD);
   $p->restart();
 
-# Give time to the child to be up
-  my $attempts = 100;
-  until ($p->is_running || $attempts == 0) {
-    sleep .1;
-    $attempts--;
-  }
-
+  sleep $interval until $p->is_running || --$patience <= 0;
   is $p->is_running, 1, "Process now is running";
   close(CHILD);
   @output = scalar <PARENT>;
@@ -178,6 +179,7 @@ subtest 'process execute()' => sub {
   is $p->getline,     "FOO BAZ\n", 'process received extra arguments';
   is $p->exit_status, 100,         'able to retrieve function return';
 
+  my $patience = $timeout / $interval;
   $p = Mojo::IOLoop::ReadWriteProcess->new(
     kill_sleeptime        => 0.01,
     sleeptime_during_kill => 0.01,
@@ -185,6 +187,7 @@ subtest 'process execute()' => sub {
     execute               => $test_script
   );
   $p->start();
+  sleep $interval until $p->is_running || --$patience <= 0;
   is $p->is_running, 1, 'process is still running';
   is $p->getline, "TEST error print\n",
     'Get STDERR output from stdout, always in getline()';
@@ -338,7 +341,7 @@ subtest 'process code()' => sub {
   is $p->channel_out->getline, "FOOBARftw\n", "can read from internal channel";
   is $p->channel_read_handle->getline, "PONG\n",
     "can read from internal channel";
-  $p->stop();
+  $p->stop->wait;
   is $p->is_running, 0, 'process is not running';
   $p->restart();
 
@@ -354,7 +357,7 @@ subtest 'process code()' => sub {
 
   is $p->read_all, "Enter something : you entered FOOBAR\n",
     'Get right output from stdout';
-  $p->stop();
+  $p->stop->wait;
 
   my @result = $p->read_all;
   is @result, 0, 'output buffer is now empty';
@@ -482,11 +485,8 @@ subtest stop_whole_process_group_gracefully => sub {
   #          to check whether the sub processes would actually be granted
   #          this number of seconds before getting killed. This is not set by
   #          default to avoid slowing down the CI.
-  my $interval       = $ENV{MOJO_PROCESS_STOP_PGROUP_SLEEP_INTERVAL} // 0.01;
-  my $timeout        = $ENV{MOJO_PROCESS_STOP_PGROUP_TIMEOUT}        // 15;
-  my $kill_sleeptime = $ENV{TOTAL_SLEEPTIME_DURING_KILL} // ($interval * 5.0);
-  my $patience       = $timeout / $interval;
-  my $sub_process    = Mojo::IOLoop::ReadWriteProcess->new(
+  my $patience    = $timeout / $interval;
+  my $sub_process = Mojo::IOLoop::ReadWriteProcess->new(
     kill_sleeptime              => $interval,
     sleeptime_during_kill       => $interval,
     max_kill_attempts           => 1,
