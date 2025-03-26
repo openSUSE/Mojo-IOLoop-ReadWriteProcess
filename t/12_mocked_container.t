@@ -40,7 +40,7 @@ sub mock_test {
 
   attempt {
     attempts  => 20,
-    condition => sub { defined $cgroups->first->process_list },
+    condition => sub { $cgroups->first->process_list // '' =~ /\d+/ },
     cb        => sub { sleep 1; }
   };
 
