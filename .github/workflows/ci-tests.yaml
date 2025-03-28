@@ -33,7 +33,7 @@ jobs:
           cpanm --with-feature=ci --installdeps --notest .
           perl Build.PL
           ./Build build
-      - name: Run tests 
+      - name: Run tests
         run: |
           TEST_SHARED=1 TEST_SUBREAPER=1 cover -test -report codecovbash
       - name: Upload coverage to ☂️ Codecov
