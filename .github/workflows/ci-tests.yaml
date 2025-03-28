@@ -17,6 +17,9 @@ jobs:
             - '5.20'
             - '5.26'
             - '5.30'
+            - '5.34'
+            - '5.38'
+            - '5.40'
             - latest
         include:
           - os: macos-latest
@@ -41,7 +44,7 @@ jobs:
           TEST_SHARED=1 TEST_SUBREAPER=1 cover -test -report codecovbash
       - name: Upload coverage to ☂️ Codecov
         uses: codecov/codecov-action@v3
-        if: matrix.perl == '5.30'
+        if: matrix.perl == '5.40'
         with:
           file: cover_db/codecov.json
           fail_ci_if_error: true
