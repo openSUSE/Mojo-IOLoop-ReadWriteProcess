@@ -38,7 +38,7 @@ jobs:
           TEST_SHARED=1 TEST_SUBREAPER=1 cover -test -report codecovbash
       - name: Upload coverage to ☂️ Codecov
         uses: codecov/codecov-action@v3
-        if: matrix.perl == '5.40'
+        if: matrix.perl == 'latest'
         with:
           file: cover_db/codecov.json
           fail_ci_if_error: true
