@@ -497,7 +497,7 @@ subtest stop_whole_process_group_gracefully => sub {
     code                        => sub {
       $SIG{TERM} = 'IGNORE';
       setpgrp(0, 0);
-      exec(perl => $test_script);
+      exec($^X => $test_script);
     })->start();
 
   # wait until the sub process changes its process group
@@ -641,22 +641,16 @@ subtest 'SIG_CHLD handler in spawned process' => sub {
   my $simple_rwp      = check_bin("$FindBin::Bin/data/simple_rwp.pl");
   my $sigchld_handler = check_bin("$FindBin::Bin/data/sigchld_handler.pl");
 
-  # use `perl <script>` here, as Github ci action place the used perl executable
-  # somewhere like /opt/hostedtoolcache/perl/<version>/<arch>/bin/perl so
-  # /usr/bin/perl wouldn't have all needed dependencies
-  is(
-    process(execute => 'perl')
-      ->args([$simple_rwp])
-      ->start()
-      ->wait_stop()
-      ->exit_status(),
-    0,
-    'simple_rwp.pl exit with 0'
-  );
+  # use `$^X <script>` here, to make sure we run the same perl as the test
+  # was started with
+  my $p = process(execute => $^X)->args([$simple_rwp])->start->wait_stop;
+  is $p->exit_status(), 0, 'simple_rwp.pl exit with 0';
 
-  my $p = process(execute => $sigchld_handler);
-  is($p->start()->wait_stop()->exit_status(),
-    0, 'sigchld_handler.pl exit with 0');
+  $p = process(execute => $^X)->args([$sigchld_handler])->start()->wait_stop();
+  is $p->exit_status(), 0, 'sigchld_handler.pl exit with 0' or do {
+    diag "out: " . $p->read_stdout;
+    diag "err: " . $p->read_stderr;
+  };
   like($p->read_all_stdout, qr/SIG_CHLD/, "SIG_CHLD handler was executed");
 };
 
