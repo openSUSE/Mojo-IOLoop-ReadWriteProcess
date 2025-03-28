@@ -7,14 +7,14 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         perl:
-            - '5.16'
-            - '5.20'
-            - '5.26'
-            - '5.30'
-            - '5.34'
-            - '5.38'
-            - '5.40'
-            - latest
+          - '5.16'
+          - '5.20'
+          - '5.26'
+          - '5.30'
+          - '5.34'
+          - '5.38'
+          - '5.40'
+          - latest
         include:
           - os: macos-latest
             perl: '5.26'
