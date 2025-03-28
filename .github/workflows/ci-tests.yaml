@@ -40,6 +40,7 @@ jobs:
         uses: codecov/codecov-action@v4
         if: matrix.perl == 'latest'
         with:
+          token: ${{ secrets.CODECOV_TOKEN }}
           file: cover_db/codecov.json
           fail_ci_if_error: true
           verbose: true
