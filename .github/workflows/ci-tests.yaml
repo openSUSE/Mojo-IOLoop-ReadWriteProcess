@@ -1,11 +1,5 @@
 name: Unit and integration tests
-on:
-  push:
-    branches:
-      - '*'
-  pull_request:
-    branches:
-      - '*'
+on: [push, pull_request]
 jobs:
   build:
     runs-on: ${{ matrix.os }}
@@ -13,11 +7,14 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         perl:
-            - '5.16'
-            - '5.20'
-            - '5.26'
-            - '5.30'
-            - latest
+          - '5.16'
+          - '5.20'
+          - '5.26'
+          - '5.30'
+          - '5.34'
+          - '5.38'
+          - '5.40'
+          - latest
         include:
           - os: macos-latest
             perl: '5.26'
@@ -25,7 +22,7 @@ jobs:
             perl: latest
     name: 🐪 Perl ${{ matrix.perl }} on ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - uses: shogo82148/actions-setup-perl@v1
         with:
           perl-version: ${{ matrix.perl }}
@@ -36,13 +33,14 @@ jobs:
           cpanm --with-feature=ci --installdeps --notest .
           perl Build.PL
           ./Build build
-      - name: Run tests 
+      - name: Run tests
         run: |
           TEST_SHARED=1 TEST_SUBREAPER=1 cover -test -report codecovbash
       - name: Upload coverage to ☂️ Codecov
-        uses: codecov/codecov-action@v3
-        if: matrix.perl == '5.30'
+        uses: codecov/codecov-action@v5
+        if: matrix.perl == 'latest'
         with:
+          token: ${{ secrets.CODECOV_TOKEN }}
           file: cover_db/codecov.json
           fail_ci_if_error: true
           verbose: true
