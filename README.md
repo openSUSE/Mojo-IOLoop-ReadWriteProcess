@@ -1,4 +1,4 @@
-[![Coverage Status](http://codecov.io/github/openSUSE/Mojo-IOLoop-ReadWriteProcess/coverage.svg?branch=master)](https://codecov.io/github/openSUSE/Mojo-IOLoop-ReadWriteProcess?branch=master) [![Actions Status](https://github.com/openSUSE/Mojo-IOLoop-ReadWriteProcess/workflows/linux/badge.svg)](https://github.com/openSUSE/Mojo-IOLoop-ReadWriteProcess/actions)
+[![Coverage Status](http://codecov.io/github/openSUSE/Mojo-IOLoop-ReadWriteProcess/coverage.svg?branch=master)](https://codecov.io/github/openSUSE/Mojo-IOLoop-ReadWriteProcess?branch=master) [![Unit and integration tests](https://github.com/openSUSE/Mojo-IOLoop-ReadWriteProcess/actions/workflows/ci-tests.yaml/badge.svg)](https://github.com/openSUSE/Mojo-IOLoop-ReadWriteProcess/actions/workflows/ci-tests.yaml)
 # NAME
 
 Mojo::IOLoop::ReadWriteProcess - Execute external programs or internal code blocks as separate process.
