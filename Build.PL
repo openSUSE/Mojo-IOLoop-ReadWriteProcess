@@ -14,12 +14,8 @@ use builder::custom;
 use File::Basename;
 use File::Spec;
 
-my $tap_harness_args = {
-    "verbosity" => 1,
-    "merge" => 1,
-    "formatter_class" => "TAP::Formatter::GitHubActions",
-
-  };
+die "OS unsupported\n" if $^O eq "MSWin32";
+die "OS unsupported\n" if $^O eq "cygwin";
 
 my %args = (
     license              => 'perl_5',
@@ -46,6 +42,7 @@ my %args = (
     test_requires => {
         'Test::Exception' => '0',
         'Test::More' => '0',
+        'Test::Pod' => '0',
     },
 
     name            => 'Mojo-IOLoop-ReadWriteProcess',
@@ -57,9 +54,10 @@ my %args = (
 
     test_files           => ((-d '.git' || $ENV{RELEASE_TESTING}) && -d 'xt') ? 't/ xt/' : 't/',
     recursive_test_files => 1,
-    tap_harness_args    => $tap_harness_args,
-);
 
+    tap_harness_args => {"merge" => 1},
+
+);
 if (-d 'share') {
     $args{share_dir} = 'share';
 }
