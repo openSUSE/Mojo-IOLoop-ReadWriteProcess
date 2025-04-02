@@ -16,4 +16,3 @@ os = [
 
 [tap_harness_args]
 merge = 1
-formatter = "TAP::Formatter::GitHubActions"
