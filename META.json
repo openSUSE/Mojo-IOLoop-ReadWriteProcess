@@ -83,7 +83,7 @@
          "web" : "https://github.com/openSUSE/Mojo-IOLoop-ReadWriteProcess"
       }
    },
-   "version" : "1.0.0",
+   "version" : "1.0.1",
    "x_contributors" : [
       "Adam Williamson <awilliam@redhat.com>",
       "Clemens Famulla-Conrad <cfamullaconrad@suse.de>",

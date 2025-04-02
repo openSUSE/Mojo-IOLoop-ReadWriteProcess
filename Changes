@@ -2,6 +2,12 @@
 Revision history for Perl extension Mojo-IOLoop-ReadWriteProcess
 
 {{$NEXT}}
+ -  README: Update POD using minilla
+ -  Try to prevent warnings about Formatter
+ -  Update Build.PL and META.json with minilla 3.1.25
+ -  Remove obsolete dependency on TAP::Formatter::Color
+ -  Fix changelog
+
 1.0.0 2025-03-17 12:20:20Z
  -  Various test fixes
  -  Fix race condition in `is_running` when `kill_whole_group` is set
