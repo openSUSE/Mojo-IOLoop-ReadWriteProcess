@@ -34,8 +34,14 @@ jobs:
           perl Build.PL
           ./Build build
       - name: Run tests
+        if: matrix.perl != 'latest'
         run: |
-          TEST_SHARED=1 TEST_SUBREAPER=1 cover -test -report codecovbash
+          TEST_SHARED=1 TEST_SUBREAPER=1 prove -l t
+      - name: Run tests with coverage
+        if: matrix.perl == 'latest'
+        run: |
+          TEST_SHARED=1 TEST_SUBREAPER=1 PERL5OPT="-MDevel::Cover=-coverage,statement" prove -l t
+          cover -report codecovbash
       - name: Upload coverage to ☂️ Codecov
         uses: codecov/codecov-action@v5
         if: matrix.perl == 'latest'
