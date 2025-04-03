@@ -475,6 +475,7 @@ sub _number_of_process_in_group {
 }
 
 subtest stop_whole_process_group_gracefully => sub {
+  check_bin('/usr/bin/pgrep');
   my $test_script = check_bin("$FindBin::Bin/data/simple_fork.pl");
 
   # run the "term_trap.pl" script and its sub processes within its own
