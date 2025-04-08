@@ -31,8 +31,6 @@ jobs:
       - name: Set up perl
         run: |
           cpanm --with-feature=ci --installdeps --notest .
-          perl Build.PL
-          ./Build build
       - name: Run tests
         if: matrix.perl != 'latest' || matrix.os == 'macos-latest'
         run: |
