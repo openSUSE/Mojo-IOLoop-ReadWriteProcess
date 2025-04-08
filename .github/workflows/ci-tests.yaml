@@ -31,20 +31,22 @@ jobs:
       - name: Set up perl
         run: |
           cpanm --with-feature=ci --installdeps --notest .
-          perl Build.PL
-          ./Build build
       - name: Run tests
-        if: matrix.perl != 'latest'
+        if: matrix.perl != 'latest' || matrix.os == 'macos-latest'
         run: |
           TEST_SHARED=1 TEST_SUBREAPER=1 prove -l t
-      - name: Run tests with coverage
-        if: matrix.perl == 'latest'
+      - name: Run tests with coverage and retry
+        if: matrix.perl == 'latest' && matrix.os != 'macos-latest'
         run: |
-          TEST_SHARED=1 TEST_SUBREAPER=1 PERL5OPT="-MDevel::Cover=-coverage,statement" prove -l t
+          # t/01_run.t can segfault, retrying multiple times
+          # See https://progress.opensuse.org/issues/180026
+          curl -O https://raw.githubusercontent.com/okurz/retry/refs/heads/main/retry
+          chmod +x retry
+          ./retry -r 7 env TEST_SHARED=1 TEST_SUBREAPER=1 PERL5OPT="-MDevel::Cover=-coverage,statement" prove -l t
           cover -report codecovbash
       - name: Upload coverage to ☂️ Codecov
         uses: codecov/codecov-action@v5
-        if: matrix.perl == 'latest'
+        if: matrix.perl == 'latest' && matrix.os != 'macos-latest'
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           file: cover_db/codecov.json
