@@ -52,8 +52,9 @@ my %args = (
     script_files => [glob('script/*'), glob('bin/*')],
     PL_files => {},
 
-    test_files           => ((-d '.git' || $ENV{RELEASE_TESTING}) && -d 'xt') ? 't/ xt/' : 't/',
+    test_files           => 't/02_parallel.t',
     recursive_test_files => 1,
+    verbose => 1,
 
     tap_harness_args => {"merge" => 1},
 
