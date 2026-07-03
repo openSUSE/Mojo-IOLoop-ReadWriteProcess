@@ -7,11 +7,11 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         perl:
-          - '5.16'
           - '5.20'
           - '5.26'
           - '5.30'
           - '5.34'
+          - '5.36'
           - '5.38'
           - '5.40'
           - latest
@@ -30,7 +30,11 @@ jobs:
         run: perl -V
       - name: Set up perl
         run: |
-          cpanm --with-feature=ci --installdeps --notest .
+          if [ "${{ matrix.perl }}" = "latest" ] && [ "${{ matrix.os }}" != "macos-latest" ]; then
+            cpanm --with-feature=ci --installdeps --notest .
+          else
+            cpanm --installdeps --notest .
+          fi
       - name: Run tests
         if: matrix.perl != 'latest' || matrix.os == 'macos-latest'
         run: |
