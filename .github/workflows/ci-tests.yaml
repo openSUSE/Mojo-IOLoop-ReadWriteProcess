@@ -22,7 +22,7 @@ jobs:
             perl: latest
     name: 🐪 Perl ${{ matrix.perl }} on ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
       - uses: shogo82148/actions-setup-perl@a198315ec4e9244f206879ea7b63078003aec8a6  # v1
         with:
           perl-version: ${{ matrix.perl }}
@@ -49,7 +49,7 @@ jobs:
           ./retry -r 7 env TEST_SHARED=1 TEST_SUBREAPER=1 PERL5OPT="-MDevel::Cover=-coverage,statement" prove -l t
           cover -report codecovbash
       - name: Upload coverage to ☂️ Codecov
-        uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac  # v5
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f  # v7.0.0
         if: matrix.perl == 'latest' && matrix.os != 'macos-latest'
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
