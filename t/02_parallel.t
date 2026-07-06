@@ -70,7 +70,7 @@ subtest batch => sub {
     separate_err => 0,
     set_pipes    => 1
   );
-  $c->start();
+  $c->last->start();
   is $c->last->getline, "Hello world 3\n";
   $c->wait_stop();
 
