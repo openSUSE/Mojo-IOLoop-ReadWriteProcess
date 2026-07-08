@@ -214,6 +214,12 @@ sub lock_section {
 
 sub stat { shift->_shared_memory->stat }
 
-sub DESTROY { $_[0]->remove if $_[0]->destroy() }
+sub DESTROY {
+  my $self = shift;
+  if ($self->_shared_memory) {
+    eval { $self->_shared_memory->detach() };
+  }
+  $self->remove if $self->destroy();
+}
 
 !!42;
