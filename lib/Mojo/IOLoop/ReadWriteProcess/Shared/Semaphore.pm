@@ -38,7 +38,7 @@ sub _create {
     warn "[debug:$$] Attach to existing semaphore $key" if DEBUG;
     $sem = IPC::Semaphore->new($key, $self->count, 0);
   }
-  confess 'Semaphore creation failed! ' unless defined($sem);
+  confess "Semaphore create/attach failed for key $key" unless defined($sem);
   return $sem;
 }
 
