@@ -14,9 +14,12 @@ use Mojo::IOLoop::ReadWriteProcess::Shared::Semaphore;
 use Mojo::IOLoop::ReadWriteProcess::Shared::Lock;
 use Mojo::IOLoop::ReadWriteProcess::Shared::Memory;
 use Data::Dumper;
+use Time::HiRes ();
 
 use constant DEBUG => $ENV{MOJO_PROCESS_DEBUG};
 plan skip_all => "Skipped unless TEST_SHARED is set" unless $ENV{TEST_SHARED};
+
+Mojo::IOLoop::ReadWriteProcess::Shared::Memory->attr(dynamic_resize => 0);
 
 subtest 'semaphore' => sub {
 
@@ -173,16 +176,13 @@ subtest 'concurrent memory read/write' => sub {
 
         my $mem = shared_memory(key => $k);
         srand time;
+        unless (DEBUG) {
+
+          # Random sleeps to try to make threads race into lock section
+          Time::HiRes::sleep(rand(0.1));
+        }
         $mem->lock_section(
           sub {
-            # Random sleeps to try to make threads race into lock section
-            unless (DEBUG) {
-              do {
-                note "$$: Sleeping inside locked section";
-                sleep rand(int(2));
-                }
-                for 1 .. 5;
-            }
             my $b = $mem->buffer;
             $mem->buffer($$ . " $b");
             Devel::Cover::report() if Devel::Cover->can('report');
@@ -253,15 +253,13 @@ subtest 'storable' => sub {
     process(
       sub {
         my $mem = shared_memory;
+        unless (DEBUG) {
+
+          # Random sleeps to try to make threads race into lock section
+          Time::HiRes::sleep(rand(0.1));
+        }
         $mem->lock_section(
           sub {
-            unless (DEBUG) {
-              do {
-                note "$$: Sleeping inside locked section";
-                sleep rand(int(2));
-                }
-                for 1 .. 5;
-            }
             my $data = thaw($mem->buffer);
             $data->{$$}++;
             $mem->buffer(freeze($data));
@@ -326,15 +324,13 @@ subtest 'dying in locked section' => sub {
     process(
       sub {
         my $mem = shared_memory;
+        unless (DEBUG) {
+
+          # Random sleeps to try to make threads race into lock section
+          Time::HiRes::sleep(rand(0.1));
+        }
         $mem->lock_section(
           sub {
-            unless (DEBUG) {
-              do {
-                note "$$: Sleeping inside locked section";
-                sleep rand(int(2));
-                }
-                for 1 .. 5;
-            }
             my $data = thaw($mem->buffer);
             $data->{$$}++;
             $mem->buffer(freeze($data));
