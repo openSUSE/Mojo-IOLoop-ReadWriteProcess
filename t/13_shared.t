@@ -19,6 +19,11 @@ use Time::HiRes ();
 use constant DEBUG => $ENV{MOJO_PROCESS_DEBUG};
 plan skip_all => "Skipped unless TEST_SHARED is set" unless $ENV{TEST_SHARED};
 
+# Nudge forked workers to race into the lock section
+sub race_sleep { Time::HiRes::sleep(rand(0.1)) unless DEBUG }
+
+# Pin segment size to avoid mid-test reallocation races; keep default 10K.
+# NOTE: this disables the dynamic-resize path for the whole file.
 Mojo::IOLoop::ReadWriteProcess::Shared::Memory->attr(dynamic_resize => 0);
 
 subtest 'semaphore' => sub {
@@ -175,12 +180,7 @@ subtest 'concurrent memory read/write' => sub {
       sub {
 
         my $mem = shared_memory(key => $k);
-        srand time;
-        unless (DEBUG) {
-
-          # Random sleeps to try to make threads race into lock section
-          Time::HiRes::sleep(rand(0.1));
-        }
+        race_sleep();
         $mem->lock_section(
           sub {
             my $b = $mem->buffer;
@@ -253,11 +253,7 @@ subtest 'storable' => sub {
     process(
       sub {
         my $mem = shared_memory;
-        unless (DEBUG) {
-
-          # Random sleeps to try to make threads race into lock section
-          Time::HiRes::sleep(rand(0.1));
-        }
+        race_sleep();
         $mem->lock_section(
           sub {
             my $data = thaw($mem->buffer);
@@ -324,11 +320,7 @@ subtest 'dying in locked section' => sub {
     process(
       sub {
         my $mem = shared_memory;
-        unless (DEBUG) {
-
-          # Random sleeps to try to make threads race into lock section
-          Time::HiRes::sleep(rand(0.1));
-        }
+        race_sleep();
         $mem->lock_section(
           sub {
             my $data = thaw($mem->buffer);
