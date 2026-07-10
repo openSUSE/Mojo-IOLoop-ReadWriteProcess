@@ -216,10 +216,8 @@ sub stat { shift->_shared_memory->stat }
 
 sub DESTROY {
   my $self = shift;
-  if ($self->_shared_memory) {
-    eval { $self->_shared_memory->detach() };
-  }
-  $self->remove if $self->destroy();
+  return $self->remove                       if $self->destroy();
+  eval { $self->{_shared_memory}->detach() } if $self->{_shared_memory};
 }
 
 !!42;
