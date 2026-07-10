@@ -1,0 +1,39 @@
+---
+merge_queue:
+  max_parallel_checks: 3
+  status_comments: none
+  queue_controls_comment: false
+
+pull_request_rules:
+  - name: automatic merge
+    conditions:
+      - and: &base_checks
+          - base=master
+          - -label~=^acceptance-tests-needed|not-ready
+          - "#check-failure=0"
+          - "#check-pending=0"
+          - linear-history
+          - check-success=codecov/project
+          - check-success=codecov/patch
+      - and:
+          - "#approved-reviews-by>=2"
+          - "#changes-requested-reviews-by=0"
+          # https://doc.mergify.io/examples.html#require-all-requested-reviews-to-be-approved
+          - "#review-requested=0"
+    actions: &merge
+      merge:
+        method: fast-forward
+  - name: automatic merge on special label
+    conditions:
+      - and: *base_checks
+      - "label=merge-fast"
+    actions: *merge
+  - name: automatic merge for dependabot updates
+    conditions:
+      - and: *base_checks
+      - and:
+          - base=master
+          - author=dependabot[bot]
+    actions:
+      merge:
+        method: squash
