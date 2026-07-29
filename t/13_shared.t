@@ -201,6 +201,7 @@ subtest 'concurrent memory read/write' => sub {
     sub {
       my @pids = split(/ /, $mem->buffer);
       is scalar @pids, 21, 'There are 20 pids and the start word (21)';
+      diag 'Buffer was: ' . $mem->buffer if scalar @pids != 21;
     });
 
   $mem->_lock->remove;
@@ -337,6 +338,66 @@ subtest 'dying in locked section' => sub {
   is $q->done->size, 20, 'Queue consumed 20 processes';
 
   test_mem;
+};
+
+subtest 'dynamic resize' => sub {
+  my $k = 33135;
+
+  my $mem = shared_memory(
+    key               => $k,
+    dynamic_resize    => 1,
+    dynamic_increment => 1,
+    dynamic_decrement => 1,
+    _size             => 10,
+  );
+
+  $mem->lock_section(
+    sub {
+      $mem->buffer("A" x 20);
+    });
+
+  ok($mem->_size >= 20, 'Memory size grew to at least 20');
+  $mem->load;
+  is($mem->buffer, "A" x 20, 'Memory content was saved correctly');
+
+  # Test lock/unlock (covers sub lock)
+  ok($mem->lock, 'Lock acquired manually');
+  $mem->unlock;
+
+# Instantiate second shared_memory instance to cover $s != $cur_size in _loadsize
+  my $mem2 = shared_memory(
+    key               => $k,
+    dynamic_resize    => 1,
+    dynamic_increment => 1,
+    dynamic_decrement => 1,
+    _size             => 10240,
+  );
+  ok(defined $mem2, 'Second memory instance created with different size');
+
+  # Attach $mem2 to the shared memory segment
+  $mem2->load;
+
+  # Test the detach path in _loadsize (covers line 74)
+  $mem2->_size(500);
+  $mem2->_loadsize;
+  $mem2->load;
+
+  # Test _safe_remove return 0 path (covers line 182)
+  $mem->_shared_memory->detach;
+  is($mem->_safe_remove, 0,
+    'Memory is not removed because second instance is attached');
+
+  $mem2->lock_section(
+    sub {
+      $mem2->buffer("B" x 5);
+    });
+
+  ok($mem2->_size < 20, 'Memory size decreased');
+  $mem2->load;
+  is($mem2->buffer, "B" x 5, 'Memory content was saved correctly');
+
+  $mem2->_lock->remove;
+  $mem2->remove;
 };
 
 done_testing();
