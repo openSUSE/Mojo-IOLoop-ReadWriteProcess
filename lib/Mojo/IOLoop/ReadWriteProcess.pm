@@ -425,12 +425,12 @@ sub _syswrite {
 }
 
 sub _getline {
-  return unless IO::Select->new($_[0])->can_read(10);
+  return unless IO::Select->new($_[0])->can_read(45);
   shift->getline;
 }
 
 sub _getlines {
-  return unless IO::Select->new($_[0])->can_read(10);
+  return unless IO::Select->new($_[0])->can_read(45);
   wantarray ? shift->getlines : join '', @{[shift->getlines]};
 }
 
