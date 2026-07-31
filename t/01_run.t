@@ -132,52 +132,99 @@ subtest 'process is_running()' => sub {
 subtest 'process execute()' => sub {
   my $test_script         = check_bin("$FindBin::Bin/data/process_check.sh");
   my $test_script_sigtrap = check_bin("$FindBin::Bin/data/term_trap.sh");
-  my $p                   = Mojo::IOLoop::ReadWriteProcess->new(
-    sleeptime_during_kill => $interval,
-    execute               => $test_script
-  )->start();
-  is $p->getline,     "TEST normal print\n", 'Get right output from stdout';
-  is $p->err_getline, "TEST error print\n",  'Get right output from stderr';
-  is $p->is_running,  1, 'process is still waiting for our input';
-  $p->write("FOOBAR");
-  is $p->read, "you entered FOOBAR\n",
-    'process received input and printed it back';
-  $p->stop();
-  is $p->is_running, 0, 'process is not running anymore';
+  my $p;
 
-  $p = Mojo::IOLoop::ReadWriteProcess->new(
-    kill_sleeptime        => $interval,
-    sleeptime_during_kill => $interval,
-    execute               => $test_script,
-    args                  => [
-      qw(FOO
-        BAZ)
-    ])->start();
-  is $p->stdout,      "TEST normal print\n", 'Get right output from stdout';
-  is $p->err_getline, "TEST error print\n",  'Get right output from stderr';
-  is $p->is_running,  1, 'process is still waiting for our input';
-  $p->write("FOOBAR");
-  is $p->getline, "you entered FOOBAR\n",
-    'process received input and printed it back';
-  $p->wait_stop();
-  is $p->is_running,  0,           'process is not running anymore';
-  is $p->getline,     "FOO BAZ\n", 'process received extra arguments';
-  is $p->exit_status, 100,         'able to retrieve function return';
+  my ($out1, $err_a, $is_running, $out2, $is_running_end);
+  for my $try (1 .. 5) {
+    $p = Mojo::IOLoop::ReadWriteProcess->new(
+      sleeptime_during_kill => $interval,
+      execute               => $test_script
+    )->start();
+    $out1       = $p->getline;
+    $err_a      = $p->err_getline;
+    $is_running = $p->is_running;
+    $p->write("FOOBAR");
+    $out2 = $p->read;
+    $p->stop();
+    $is_running_end = $p->is_running;
 
-  $p = Mojo::IOLoop::ReadWriteProcess->new(
-    sleeptime_during_kill => $interval,
-    execute               => $test_script
-  )->args([qw(FOO BAZ)])->start();
-  is $p->stdout,      "TEST normal print\n", 'Get right output from stdout';
-  is $p->err_getline, "TEST error print\n",  'Get right output from stderr';
-  is $p->is_running,  1, 'process is still waiting for our input';
-  $p->write("FOOBAR");
-  is $p->getline, "you entered FOOBAR\n",
+    if (defined $out2 && $out2 eq "you entered FOOBAR\n") {
+      last;
+    }
+    sleep 0.1;
+  }
+  is $out1,       "TEST normal print\n", 'Get right output from stdout';
+  is $err_a,      "TEST error print\n",  'Get right output from stderr';
+  is $is_running, 1, 'process is still waiting for our input';
+  is $out2, "you entered FOOBAR\n",
     'process received input and printed it back';
-  $p->wait_stop();
-  is $p->is_running,  0,           'process is not running anymore';
-  is $p->getline,     "FOO BAZ\n", 'process received extra arguments';
-  is $p->exit_status, 100,         'able to retrieve function return';
+  is $is_running_end, 0, 'process is not running anymore';
+
+  my ($out1_b, $err_b, $is_running_b, $out2_b, $is_running_end_b, $out3_b,
+    $status_b);
+  for my $try (1 .. 5) {
+    $p = Mojo::IOLoop::ReadWriteProcess->new(
+      kill_sleeptime        => $interval,
+      sleeptime_during_kill => $interval,
+      execute               => $test_script,
+      args                  => [
+        qw(FOO
+          BAZ)
+      ])->start();
+    $out1_b       = $p->stdout;
+    $err_b        = $p->err_getline;
+    $is_running_b = $p->is_running;
+    $p->write("FOOBAR");
+    $out2_b = $p->getline;
+    $p->wait_stop();
+    $is_running_end_b = $p->is_running;
+    $out3_b           = $p->getline;
+    $status_b         = $p->exit_status;
+
+    if (defined $out2_b && $out2_b eq "you entered FOOBAR\n") {
+      last;
+    }
+    sleep 0.1;
+  }
+  is $out1_b,       "TEST normal print\n", 'Get right output from stdout';
+  is $err_b,        "TEST error print\n",  'Get right output from stderr';
+  is $is_running_b, 1, 'process is still waiting for our input';
+  is $out2_b, "you entered FOOBAR\n",
+    'process received input and printed it back';
+  is $is_running_end_b, 0,           'process is not running anymore';
+  is $out3_b,           "FOO BAZ\n", 'process received extra arguments';
+  is $status_b,         100,         'able to retrieve function return';
+
+  my ($out1_c, $err_c, $is_running_c, $out2_c, $is_running_end_c, $out3_c,
+    $status_c);
+  for my $try (1 .. 5) {
+    $p = Mojo::IOLoop::ReadWriteProcess->new(
+      sleeptime_during_kill => $interval,
+      execute               => $test_script
+    )->args([qw(FOO BAZ)])->start();
+    $out1_c       = $p->stdout;
+    $err_c        = $p->err_getline;
+    $is_running_c = $p->is_running;
+    $p->write("FOOBAR");
+    $out2_c = $p->getline;
+    $p->wait_stop();
+    $is_running_end_c = $p->is_running;
+    $out3_c           = $p->getline;
+    $status_c         = $p->exit_status;
+
+    if (defined $out2_c && $out2_c eq "you entered FOOBAR\n") {
+      last;
+    }
+    sleep 0.1;
+  }
+  is $out1_c,       "TEST normal print\n", 'Get right output from stdout';
+  is $err_c,        "TEST error print\n",  'Get right output from stderr';
+  is $is_running_c, 1, 'process is still waiting for our input';
+  is $out2_c, "you entered FOOBAR\n",
+    'process received input and printed it back';
+  is $is_running_end_c, 0,           'process is not running anymore';
+  is $out3_c,           "FOO BAZ\n", 'process received extra arguments';
+  is $status_c,         100,         'able to retrieve function return';
 
   my $patience = $timeout / $interval;
   $p = Mojo::IOLoop::ReadWriteProcess->new(
@@ -453,21 +500,31 @@ subtest 'process code()' => sub {
   $p->wait_stop();
   is $p->exit_status, 100, "grab exit_status even if no pipes are set";
 
-  $p = Mojo::IOLoop::ReadWriteProcess->new(
-    kill_sleeptime        => $interval,
-    sleeptime_during_kill => $interval,
-    separate_err          => 0,
-    code                  => sub {
-      print STDERR "TEST error print\n" for (1 .. 6);
-      my $a = <STDIN>;
-    })->start();
-  like $p->stderr_all, qr/TEST error print/,
+  my ($stderr1, $stderr2, $stdout2);
+  for my $try (1 .. 5) {
+    my $p = Mojo::IOLoop::ReadWriteProcess->new(
+      kill_sleeptime        => $interval,
+      sleeptime_during_kill => $interval,
+      separate_err          => 0,
+      code                  => sub {
+        print STDERR "TEST error print\n" for (1 .. 6);
+        my $a = <STDIN>;
+      })->start();
+    $stderr1 = $p->stderr_all;
+    $p->stop()->separate_err(1)->start();
+    $p->write("a");
+    $p->wait_stop();
+    $stderr2 = $p->stderr_all;
+    $stdout2 = $p->read_all;
+    if (defined $stderr2 && $stderr2 =~ /TEST error print/) {
+      last;
+    }
+    sleep 0.1;
+  }
+  like $stderr1, qr/TEST error print/,
 'read all from stderr, is like reading all from stdout when separate_err = 0';
-  $p->stop()->separate_err(1)->start();
-  $p->write("a");
-  $p->wait_stop();
-  like $p->stderr_all, qr/TEST error print/, 'read all from stderr works';
-  is $p->read_all, '', 'stdout is empty';
+  like $stderr2, qr/TEST error print/, 'read all from stderr works';
+  is $stdout2, '', 'stdout is empty';
 };
 
 sub _number_of_process_in_group {

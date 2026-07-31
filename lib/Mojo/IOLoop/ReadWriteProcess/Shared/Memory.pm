@@ -68,13 +68,22 @@ sub _loadsize {
   my $cur_size = $_[0]->_size;
   $s = $_[0]->_size if $s == 0;
   $_[0]->_size($s =~ /\d/ ? $s : $_[0]->_size);
-  $_[0]->_writesize($_[0]->_size) and $_[0]->_shared_memory($_[0]->_newmem)
-    if $s != $cur_size;
+  if ($s != $cur_size) {
+    $_[0]->_writesize($_[0]->_size);
+    if ($_[0]->{_shared_memory}) {
+      eval { $_[0]->{_shared_memory}->detach() };
+    }
+    $_[0]->_shared_memory($_[0]->_newmem);
+  }
 
   warn "[debug:$$] Mem size: " . $_[0]->_size if DEBUG;
 }
 
 sub _reload {
+  if ($_[0]->{_shared_memory}) {
+    eval { $_[0]->{_shared_memory}->detach() };
+    undef $_[0]->{_shared_memory};
+  }
   $_[0]->_shared_memory($_[0]->_newmem);
   $_[0]->_shared_memory($_[0]->_newmem) until defined $_[0]->_shared_memory;
 }
@@ -214,6 +223,10 @@ sub lock_section {
 
 sub stat { shift->_shared_memory->stat }
 
-sub DESTROY { $_[0]->remove if $_[0]->destroy() }
+sub DESTROY {
+  my $self = shift;
+  return $self->remove                       if $self->destroy();
+  eval { $self->{_shared_memory}->detach() } if $self->{_shared_memory};
+}
 
 !!42;

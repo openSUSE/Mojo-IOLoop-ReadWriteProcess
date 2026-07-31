@@ -25,14 +25,20 @@ sub _genkey { ftok($0, 0) }
 sub _create {
   my ($self, $key) = @_;
 
-  # Try acquiring already existing semaphore
-  my $sem = IPC::Semaphore->new($key, $self->count, 0);
-  unless (defined $sem) {
+  # Try creating a new semaphore. The IPC_EXCL flag in flags will fail
+  # with EEXIST if it already exists (e.g. from a previous call, or a
+  # concurrent process that won the race to create it). In both of those
+  # cases, attach to the existing semaphore instead.
+  my $sem = IPC::Semaphore->new($key, $self->count, $self->flags);
+  if (defined $sem) {
     warn "[debug:$$] Create semaphore $key" if DEBUG;
-    $sem = IPC::Semaphore->new($key, $self->count, $self->flags);
-    confess 'Semaphore creation failed! ' unless defined($sem);
     $sem->setall($self->_value);
   }
+  else {
+    warn "[debug:$$] Attach to existing semaphore $key" if DEBUG;
+    $sem = IPC::Semaphore->new($key, $self->count, 0);
+  }
+  confess "Semaphore create/attach failed for key $key" unless defined($sem);
   return $sem;
 }
 
