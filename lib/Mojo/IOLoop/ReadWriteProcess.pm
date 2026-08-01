@@ -428,8 +428,13 @@ sub _can_read {
   my ($handle, $timeout) = @_;
   my $select = IO::Select->new($handle);
   my @ready;
-  while (!(@ready = $select->can_read($timeout)) && $!{EINTR}) { }
-  return wantarray ? @ready : scalar @ready;
+  while (1) {
+    @ready = $select->can_read($timeout);
+    last if @ready;
+    my $is_eintr = $!{EINTR};
+    last unless $is_eintr;
+  }
+  return @ready ? 1 : 0;
 }
 
 sub _getline {

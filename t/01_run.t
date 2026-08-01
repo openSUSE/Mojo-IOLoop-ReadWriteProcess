@@ -728,4 +728,36 @@ subtest 'SIG_CHLD handler in spawned process' => sub {
   like($p->read_all_stdout, qr/SIG_CHLD/, "SIG_CHLD handler was executed");
 };
 
+subtest '_can_read signal interruption and coverage' => sub {
+  pipe(my $read_handle, my $write_handle);
+  $write_handle->autoflush(1);
+
+  # 1. Normal select (when handle is readable)
+  print $write_handle "foo\n";
+  my $ready = Mojo::IOLoop::ReadWriteProcess::_can_read($read_handle, 1);
+  ok $ready, 'readable handle returns true';
+
+  <$read_handle>;
+
+  # 2. Normal select (when select times out / not readable)
+  my $not_ready = Mojo::IOLoop::ReadWriteProcess::_can_read($read_handle, 0.1);
+  ok !$not_ready, 'not readable handle returns false';
+
+  # 3. Interrupted select (EINTR)
+  my $can_read_calls = 0;
+  no warnings 'redefine';
+  local *IO::Select::can_read = sub {
+    $can_read_calls++;
+    if ($can_read_calls == 1) {
+      $! = POSIX::EINTR;
+      return ();
+    }
+    return ($read_handle);
+  };
+
+  my $ready_eintr = Mojo::IOLoop::ReadWriteProcess::_can_read($read_handle, 1);
+  is $can_read_calls, 2, 'can_read was called twice';
+  ok $ready_eintr, '_can_read successfully retried on EINTR and returned true';
+};
+
 done_testing;
