@@ -180,7 +180,7 @@ sub _fork_collect_status {
       ? $self->_internal_return
       : $self->_internal_return->reader();
     $self->_new_err('Cannot read from return code pipe') && return
-      unless IO::Select->new($return_reader)->can_read(10);
+      unless _can_read($return_reader, 10);
     $rt = $return_reader->getline();
     $self->_diag("Forked code Process Returns: " . ($rt ? $rt : 'nothing'))
       if DEBUG;
@@ -195,7 +195,7 @@ sub _fork_collect_status {
       ? $self->_internal_err
       : $self->_internal_err->reader();
     $self->_new_err('Cannot read from errors code pipe') && return
-      unless IO::Select->new($internal_err_reader)->can_read(10);
+      unless _can_read($internal_err_reader, 10);
     @result_error = $internal_err_reader->getlines();
     push(
       @{$self->error},
@@ -424,13 +424,21 @@ sub _syswrite {
   $stream->syswrite($_ . "\n") for @_;
 }
 
+sub _can_read {
+  my ($handle, $timeout) = @_;
+  my $select = IO::Select->new($handle);
+  my @ready;
+  while (!(@ready = $select->can_read($timeout)) && $!{EINTR}) { }
+  return wantarray ? @ready : scalar @ready;
+}
+
 sub _getline {
-  return unless IO::Select->new($_[0])->can_read(45);
+  return unless _can_read($_[0], 45);
   shift->getline;
 }
 
 sub _getlines {
-  return unless IO::Select->new($_[0])->can_read(45);
+  return unless _can_read($_[0], 45);
   wantarray ? shift->getlines : join '', @{[shift->getlines]};
 }
 

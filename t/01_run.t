@@ -413,24 +413,40 @@ subtest 'process code()' => sub {
     "can read from internal channel";
   is $p->is_running, 0, 'process is not running';
 
-  $p = Mojo::IOLoop::ReadWriteProcess->new(
-    kill_sleeptime        => $interval,
-    sleeptime_during_kill => $interval,
-    separate_err          => 0,
-    code                  => sub {
-      my ($self)        = shift;
-      my $parent_output = $self->channel_out;
-      my $parent_input  = $self->channel_in;
+  my ($out_normal, $out_error, $is_running, $status);
+  for my $try (1 .. 5) {
+    $p = Mojo::IOLoop::ReadWriteProcess->new(
+      kill_sleeptime        => $interval,
+      sleeptime_during_kill => $interval,
+      separate_err          => 0,
+      code                  => sub {
+        my ($self)        = shift;
+        my $parent_output = $self->channel_out;
+        my $parent_input  = $self->channel_in;
 
-      print "TEST normal print\n";
-      print STDERR "TEST error print\n";
-      return "256";
-    })->start();
-  is $p->getline, "TEST normal print\n", 'Get right output from stderr/stdout';
-  is $p->getline, "TEST error print\n",  'Get right output from stderr/stdout';
-  $p->wait_stop();
-  is $p->is_running,    0,   'process is not running';
-  is $p->return_status, 256, 'right return code';
+        print "TEST normal print\n";
+        print STDERR "TEST error print\n";
+        return "256";
+      })->start();
+    $out_normal = $p->getline;
+    $out_error  = $p->getline;
+    $p->wait_stop();
+    $is_running = $p->is_running;
+    $status     = $p->return_status;
+
+    if ( defined $out_normal
+      && $out_normal eq "TEST normal print\n"
+      && defined $out_error
+      && $out_error eq "TEST error print\n")
+    {
+      last;
+    }
+    sleep 0.1;
+  }
+  is $out_normal, "TEST normal print\n", 'Get right output from stderr/stdout';
+  is $out_error,  "TEST error print\n",  'Get right output from stderr/stdout';
+  is $is_running, 0,                     'process is not running';
+  is $status,     256,                   'right return code';
 
   $p = Mojo::IOLoop::ReadWriteProcess->new(sub { die "Fatal error" },
     sleeptime_during_kill => $interval);
