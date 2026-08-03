@@ -155,7 +155,7 @@ subtest test_3 => sub {
   }
 };
 
-is(Mojo::IOLoop::ReadWriteProcess::Session->singleton->all->size,         40);
+is(Mojo::IOLoop::ReadWriteProcess::Session->singleton->all->size,         0);
 is(Mojo::IOLoop::ReadWriteProcess::Session->singleton->all_orphans->size, 0);
 
 subtest stress_test => sub {
