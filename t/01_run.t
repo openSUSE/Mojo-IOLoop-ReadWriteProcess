@@ -4,6 +4,7 @@ use warnings;
 use strict;
 use Test::More;
 use Test::Exception;
+use Test::Output;
 use POSIX;
 use FindBin;
 use IO::Select;
@@ -471,19 +472,21 @@ subtest 'process code()' => sub {
 
 # XXX: flaky test temporarly skip it. is !!$p->exit_status, 1, 'Exit status is there';
 
-  $p = Mojo::IOLoop::ReadWriteProcess->new(
-    kill_sleeptime        => $interval,
-    sleeptime_during_kill => $interval,
-    separate_err          => 0,
-    set_pipes             => 0,
-    code                  => sub {
-      print "TEST normal print\n";
-      print STDERR "TEST error print\n";
-      return "256";
-    })->start();
-  is $p->getline, undef, 'no output from pipes expected';
-  is $p->getline, undef, 'no output from pipes expected';
-  $p->wait_stop();
+  my $captured = combined_from {
+    $p = Mojo::IOLoop::ReadWriteProcess->new(
+      kill_sleeptime        => $interval,
+      sleeptime_during_kill => $interval,
+      separate_err          => 0,
+      set_pipes             => 0,
+      code                  => sub {
+        print "TEST normal print\n";
+        print STDERR "TEST error print\n";
+        return "256";
+      })->start();
+    is $p->getline, undef, 'no output from pipes expected';
+    is $p->getline, undef, 'no output from pipes expected';
+    $p->wait_stop();
+  };
   is $p->return_status, 256, "grab exit_status even if no pipes are set";
 
   $p = Mojo::IOLoop::ReadWriteProcess->new(
@@ -578,41 +581,41 @@ subtest stop_whole_process_group_gracefully => sub {
 };
 
 subtest process_debug => sub {
-  my $buffer;
   local $ENV{MOJO_PROCESS_DEBUG} = 1;
 
   {
-# We have to unload and load it back from memory to enable debug. (the ENV value is considered only in compile-time)
-    open my $handle, '>', \$buffer;
-    local *STDERR = $handle;
+    no warnings 'redefine';
     delete $INC{'Mojo/IOLoop/ReadWriteProcess.pm'};
-    eval "no warnings; require Mojo::IOLoop::ReadWriteProcess";    ## no critic
+    require Mojo::IOLoop::ReadWriteProcess;
+  }
+
+  stderr_like {
     Mojo::IOLoop::ReadWriteProcess->new(
       code                  => sub { 1; },
       kill_sleeptime        => $interval,
       sleeptime_during_kill => $interval
     )->start()->stop();
   }
+  qr/Fork: \{/,
+    'setting MOJO_PROCESS_DEBUG to 1 enables debug mode when forking process';
 
-  like $buffer, qr/Fork: \{/,
-    'setting MOJO_PROCESS_DEBUG to 1 enables debug mode when forking
-process';
-
-  undef $buffer;
-  {
-    open my $handle, '>', \$buffer;
-    local *STDERR = $handle;
-    delete $INC{'Mojo/IOLoop/ReadWriteProcess.pm'};
-    eval "no warnings; require Mojo::IOLoop::ReadWriteProcess";    ## no critic
+  stderr_like {
     Mojo::IOLoop::ReadWriteProcess->new(
       execute               => "$FindBin::Bin/data/process_check.sh",
       kill_sleeptime        => $interval,
       sleeptime_during_kill => $interval,
     )->start()->stop();
   }
-
-  like $buffer, qr/Execute: .*process_check.sh/,
+  qr/Execute: .*process_check.sh/,
 'setting MOJO_PROCESS_DEBUG to 1 enables debug mode when executing external process';
+
+  # Reload with DEBUG disabled so subsequent tests are silent
+  local $ENV{MOJO_PROCESS_DEBUG} = 0;
+  {
+    no warnings 'redefine';
+    delete $INC{'Mojo/IOLoop/ReadWriteProcess.pm'};
+    require Mojo::IOLoop::ReadWriteProcess;
+  }
 };
 
 subtest 'process_args' => sub {

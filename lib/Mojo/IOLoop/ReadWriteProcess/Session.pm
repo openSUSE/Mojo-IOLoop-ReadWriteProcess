@@ -10,6 +10,7 @@ our @EXPORT_OK = qw(session);
 use Exporter 'import';
 
 use Config;
+use Scalar::Util 'weaken';
 
 use constant DEBUG => $ENV{MOJO_PROCESS_DEBUG};
 
@@ -101,6 +102,7 @@ sub add_collected_info {
 sub register {
   my ($process, $pid) = (pop, pop);
   $singleton->process_table()->{$pid} = \$process;
+  weaken($process);
   $singleton->emit(register => $process);
 }
 
@@ -119,18 +121,29 @@ sub orphan  { _resolve(orphans       => pop()) }
 sub resolve { _resolve(process_table => pop()) }
 
 sub clean {
-  $_[0]->resolve($_)->stop() and $_[0]->resolve($_)->DESTROY()
-    for keys %{$_[0]->process_table()};
-  $_[0]->orphan($_)->stop() and $_[0]->orphan($_)->DESTROY()
-    for keys %{$_[0]->orphans()};
-  shift->reset();
+  my $self = shift;
+  for (keys %{$self->process_table()}) {
+    if (my $p = $self->resolve($_)) {
+      $p->stop();
+      $p->DESTROY();
+    }
+  }
+  for (keys %{$self->orphans()}) {
+    if (my $o = $self->orphan($_)) {
+      $o->stop();
+      $o->DESTROY();
+    }
+  }
+  $self->reset();
 }
 
 sub all { c($singleton->all_processes, $singleton->all_orphans)->flatten }
 sub all_orphans { c(values %{$singleton->orphans}) }
 
 sub all_processes {
-  c(values %{$singleton->process_table})->map(sub { ${$_} });
+  c(values %{$singleton->process_table})
+    ->map(sub { ${$_} })
+    ->grep(sub { defined });
 }
 
 sub contains {

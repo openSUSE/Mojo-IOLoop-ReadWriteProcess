@@ -64,9 +64,10 @@ subtest disable => sub {
 subtest reset => sub {
   session->reset;
 
-  session->register(1 => process(sub { }));
-  session->register(2 => process(sub { }));
-  session->register(3 => process(sub { }));
+  my @p = (process(sub { }), process(sub { }), process(sub { }),);
+  session->register(1 => $p[0]);
+  session->register(2 => $p[1]);
+  session->register(3 => $p[2]);
   session->orphans->{5} = 1;
 
   is session->all->size, 4, 'There are 4 processes';
@@ -104,6 +105,33 @@ subtest protect => sub {
   Mojo::IOLoop::ReadWriteProcess::Session::protect(sub { } => SIGTERM);
   is $handler, SIGTERM;
 
+};
+
+subtest 'reference cycle leak' => sub {
+  session->clean();
+
+  $MyTestProcess::destroyed = 0;
+  {
+
+    package MyTestProcess;
+    use Mojo::Base 'Mojo::IOLoop::ReadWriteProcess';
+    sub DESTROY { $MyTestProcess::destroyed++; shift->SUPER::DESTROY }
+  }
+
+  {
+    my $p = MyTestProcess->new();
+    session->register(12345 => $p);
+    is session->all_processes->size, 1, 'one process in session';
+  }
+
+  is $MyTestProcess::destroyed, 1,
+    'process was destroyed when going out of scope';
+  is session->all_processes->size, 0, 'session has no active processes';
+
+  # Exercise clean() with undefined process and defined orphan for 100% coverage
+  session->orphans->{54321} = MyTestProcess->new();
+  session->clean();
+  is session->all_processes->size, 0, 'clean cleared everything';
 };
 
 done_testing();
